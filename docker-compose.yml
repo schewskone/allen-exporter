@@ -1,0 +1,12 @@
+services:
+  allensdk_jupyter:
+    build:
+      context: . # Make sure this points to the correct directory containing Dockerfile
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app # Mount the current directory to /app in the container
+    ports:
+      - "8888:8888" # Map the container's Jupyter Notebook port to the host
+    environment:
+      - PYTHONUNBUFFERED=1
+    tty: true
