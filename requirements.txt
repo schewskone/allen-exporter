@@ -1,2 +1,2 @@
-allensdk
+allensdk==2.16.2
 
