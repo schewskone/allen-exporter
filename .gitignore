@@ -1,6 +1,7 @@
 *.DS_Store
 visual_behavior_cache/
 data/
+example_experiment/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
