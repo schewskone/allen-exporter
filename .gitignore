@@ -1,4 +1,5 @@
 *.DS_Store
+brain_observatory/
 visual_behavior_cache/
 data/
 example_experiment/
