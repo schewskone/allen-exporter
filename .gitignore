@@ -1,4 +1,5 @@
 *.DS_Store
+movies/
 brain_observatory/
 visual_behavior_cache/
 data/
