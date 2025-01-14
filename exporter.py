@@ -1,4 +1,4 @@
-import numpy as np
+ fimport numpy as np
 import os
 import yaml
 from tqdm import tqdm
@@ -8,6 +8,33 @@ from utils import write_yaml, write_mem
 # export function for exporting stimuli
 # currently with duplicate images and videos. might want to fix later
 
+#def calculate_metrics():
+    # images : average imagecolor over time considering the distribution of images shown
+    # treadmill : average running speed
+    # dff : average response
+    # eye tracker : average of everything
+    
+
+def save_images(stimulus_table, stimulus_templates, output_dir):
+    # save all images
+    images = stimulus_templates['warped']
+    idxs = images.index
+        
+    for i, image in enumerate(images):
+        idx = idxs[i]
+        npy_path = os.path.join(output_dir, f"{idx}.npy")
+        np.save(npy_path, image)
+
+    # save all movies used
+    mv_names = stimulus_table[stimulus_table['stimulus_block_name'].str.contains('movie', case=False, na=False)]['stimulus_block_name'].unique()
+
+    for name in mv_names:
+        movie = np.load(f'data/movies/{name}.npy')
+        npy_path = os.path.join(output_dir, f"{name}.npy")
+        np.save(npy_path, movie)
+        
+    print('Stimuli saved succesfully')
+        
 
 # helper functions for filler grey screens after images and videos
 def write_grey(output_dir, yaml_filename, frame_counter, file_counter, image_size):
@@ -74,12 +101,13 @@ def stimuli_export(stimuli, stimulus_templates, output_dir, frame_rate=60,
                                                                                       frame_counter, file_counter, image_size)
 
             
-            # get current stimuli template
-            img = stimulus_templates.loc[image_name]["warped"]
-            np.save(npy_filename, img)
+            # get current stimuli template, use this if you want one file for each stimuli
+            #img = stimulus_templates.loc[image_name]["warped"]
+            #np.save(npy_filename, img)
 
             img_data = {
                 col: row[col] for col in ['image_name', 'duration', 'stimulus_block_name']} | {
+                'image_name': image_name,
                 'modality': 'image',
                 'frame_counter': frame_counter,
                 'trial_index': trial_index,
@@ -130,6 +158,7 @@ def stimuli_export(stimuli, stimulus_templates, output_dir, frame_rate=60,
             mv_size = movie.shape
             
             mv_data = {
+                'move_name': image_name,
                 'modality': 'video',
                 'first_frame_idx': frame_counter,
                 'trial_index': trial_index,
@@ -137,8 +166,6 @@ def stimuli_export(stimuli, stimulus_templates, output_dir, frame_rate=60,
                 'image_size': mv_size[:1],
                 'pre_blank_period': row['start_time'] - prev_end_time
             }
-
-            np.save(npy_filename, movie)
 
 
             write_yaml(mv_data, yaml_filename)

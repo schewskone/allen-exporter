@@ -75,7 +75,6 @@ def save_movies():
     print("Done saving movies")
 
 
-
 # small helper function for writing yamls
 
 def write_yaml(data, file_name):
