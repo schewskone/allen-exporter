@@ -85,9 +85,9 @@ def write_yaml(data, file_name):
 
 # small helper function for writing data into .mem fles
 
-def write_mem(data, output_dir):
+def write_mem(data, output_dir, filename='data.mem'):
     shape = data.shape
-    mem_filename = os.path.join(output_dir, "data.mem")
+    mem_filename = os.path.join(output_dir, filename)
     mem = np.memmap(mem_filename, dtype='float64', mode='w+', shape=shape)
     mem[:] = data[:]
     mem.flush()
