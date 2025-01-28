@@ -1,12 +1,12 @@
 services:
   allensdk_jupyter:
     build:
-      context: . # Make sure this points to the correct directory containing Dockerfile
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Dockerfile # Use the Dockerfile in the current context
     volumes:
-      - .:/app # Mount the current directory to /app in the container
+      - ./allensdk_export:/src/allen_export # Mount code directory
+      - ./data:/src/data # Mount data directory
     ports:
-      - "8888:8888" # Map the container's Jupyter Notebook port to the host
+      - "8888:8888" # Expose port for Jupyter Notebook
     environment:
-      - PYTHONUNBUFFERED=1
-    tty: true
+      - PYTHONBUFFERED=1 # Ensures Python output is sent straight to terminal (avoiding buffering)

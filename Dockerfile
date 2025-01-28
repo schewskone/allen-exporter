@@ -2,7 +2,7 @@
 FROM python:3.10-slim
 
 # Set working directory in the container
-WORKDIR /app
+WORKDIR /src
 
 # Install system dependencies for AllenSDK and Jupyter
 RUN apt-get update && apt-get install -y \
@@ -15,16 +15,19 @@ RUN apt-get update && apt-get install -y \
 # Copy requirements file into the container
 COPY requirements.txt .
 
-# Install Python dependencies, including Jupyter
+RUN git clone https://github.com/tomschewski/experanto.git /src/experanto
+
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt \
-    && pip install --no-cache-dir notebook
+    && pip install --no-cache-dir notebook \
+    && pip install --no-cache-dir -e /src/experanto
+
 
 # Expose the default Jupyter Notebook port
 EXPOSE 8888
 
 # Copy application code into the container
-COPY . .
+COPY ./allensdk_export /src
 
 # Set default command to run Jupyter Notebook
-CMD ["jupyter notebook", "--ip=0.0.0.0", "--port=8888", "--browser=Safari", "--allow-root"]
+CMD ["jupyter", "notebook", "--ip=0.0.0.0", "--port=8888", "--allow-root"]
