@@ -31,8 +31,12 @@ def calculate_metrics(stimulus_table, stimulus_templates, running_speed_table,
     data = {'mean_dff': mean_dff,
             'mean_event': mean_event}
     write_yaml(data, path+'responses/meta/mean.yml')
+    
     # eye tracker : average of everything
-
+    eye_tracking_data = eye_tracking_table.drop('timestamps', axis=1)
+    mean_values = eye_tracking_data.mean()
+    data = {col: str(mean) for col, mean in mean_values.items()}
+    write_yaml(data, path+"eye_tracker/meta/mean.yml")
 
     print('Metrics calculated succesfully')
     
