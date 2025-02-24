@@ -9,7 +9,7 @@ from utils import write_yaml, write_mem
 # currently with duplicate images and videos. might want to fix later
 
 def calculate_metrics(stimulus_table, stimulus_templates, running_speed_table,
-                      dff_table, event_table, eye_tracking_table, path='data/example_experiment/'):
+                      dff_table, event_table, eye_tracking_table, path='../data/example_experiment/'):
     # images : average imagecolor over time considering the distribution of images shown
     stimulus_images = stimulus_table[stimulus_table['image_name'].str.contains('im', case=False, na=False)]
     images_mean = stimulus_templates['warped'].sort_index().apply(np.mean) #use .apply here for row wise mean
@@ -55,7 +55,7 @@ def save_images(stimulus_table, stimulus_templates, output_dir):
     mv_names = stimulus_table[stimulus_table['stimulus_block_name'].str.contains('movie', case=False, na=False)]['stimulus_block_name'].unique()
 
     for name in mv_names:
-        movie = np.load(f'data/movies/{name}.npy')
+        movie = np.load(f'../data/movies/{name}.npy')
         npy_path = os.path.join(output_dir, f"{name}.npy")
         np.save(npy_path, movie)
         
@@ -180,7 +180,7 @@ def stimuli_export(stimuli, stimulus_templates, output_dir, frame_rate=60,
                 yaml_filename, npy_filename, file_counter, frame_counter = write_grey(output_dir, yaml_filename,
                                                                                       frame_counter, file_counter, image_size)
 
-            movie = np.load(f'data/movies/{row["stimulus_block_name"]}.npy')
+            movie = np.load(f'../data/movies/{row["stimulus_block_name"]}.npy')
             mv_size = movie.shape
             
             mv_data = {
@@ -295,7 +295,7 @@ def eye_tracker_export(eye_tracking_table, output_dir):
         'end_time': end_time, ### get value of last time
         'is_mem_mapped': True,
         'modality': 'sequence',
-        'n_signals': n_signals,
+        'n_signals': n_signals-1, # subtract one because we  do not want timestamps to be included here
         'n_timestamps': nr_rows,
         'phase_shift_per_signal': False, ### pretty sure it's always false here
         'sampling_rate': sampling_rate, 

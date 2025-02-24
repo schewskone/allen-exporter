@@ -48,7 +48,7 @@ def save_movies():
     # already have movie 1 and 2 but we need another set which contains set 3
 
     # Specify the cache directory
-    cache_directory = "data/brain_observatory"
+    cache_directory = "../data/brain_observatory"
     
     # Specify the path to the manifest file
     manifest_file = f"{cache_directory}/boc_manifest.json"
@@ -59,17 +59,17 @@ def save_movies():
     mv_1_3 = boc.get_ophys_experiment_data(501940850)
     mv_2 = 0
 
-    if not os.path.exists('data/movies'):
-        os.makedirs('data/movies', exist_ok=True)
+    if not os.path.exists('../data/movies'):
+        os.makedirs('../data/movies', exist_ok=True)
             
-    if not os.path.exists('data/movies/natural_movie_one.npy'):
+    if not os.path.exists('../data/movies/natural_movie_one.npy'):
         movie_1 = mv_1_3.get_stimulus_template('natural_movie_one')
-        np.save('data/movies/natural_movie_one.npy', movie_1)
+        np.save('../data/movies/natural_movie_one.npy', movie_1)
         print("movie 1 saved")
 
-    if not os.path.exists('data/movies/natural_movie_three.npy'):
+    if not os.path.exists('../data/movies/natural_movie_three.npy'):
         movie_3 = mv_1_3.get_stimulus_template('natural_movie_three')
-        np.save('data/movies/natural_movie_three.npy', movie_3)
+        np.save('../data/movies/natural_movie_three.npy', movie_3)
         print("movie 3 saved")
 
     print("Done saving movies")
