@@ -6,6 +6,7 @@ services:
     volumes:
       - ./allensdk_export:/src/allen_export # Mount code directory
       - ./data:/src/data # Mount data directory
+      - ./../experanto:/src/experanto # Mount library
     ports:
       - "8888:8888" # Expose port for Jupyter Notebook
     environment:

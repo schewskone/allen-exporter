@@ -63,26 +63,24 @@ def save_images(stimulus_table, stimulus_templates, output_dir):
         
 
 # helper functions for filler grey screens after images and videos
-def write_grey(output_dir, yaml_filename, frame_counter, file_counter, image_size):
+def write_grey(output_dir, yaml_filename, first_frame_idx, file_counter, image_size, blank_period, frame_rate):
     # define grey screen data
     data_grey = {
-                    'first_frame_index': frame_counter,
+                    'first_frame_idx': first_frame_idx - frame_rate * blank_period,
+                    'image_name': 'blank',
                     'image_size': image_size,
                     'modality': 'blank',
-                    'num_frames': 1
+                    'num_frames': frame_rate * blank_period
                 }
 
     write_yaml(data_grey, yaml_filename)
 
     # update variables
     file_counter += 1
-    frame_counter +=1
-    yaml_filename = os.path.join(output_dir, f"meta/{file_counter:05}.yaml")
+    yaml_filename = os.path.join(output_dir, f"meta/{file_counter:05}.yml")
     npy_filename = os.path.join(output_dir, f"data/{file_counter:05}.npy")
 
-    return yaml_filename, npy_filename, file_counter, frame_counter
-    
-    
+    return yaml_filename, npy_filename, file_counter
 
 
 def stimuli_export(stimuli, stimulus_templates, output_dir, frame_rate=60,
@@ -98,7 +96,6 @@ def stimuli_export(stimuli, stimulus_templates, output_dir, frame_rate=60,
     
     write_yaml(meta_dict, main_yml)
 
-    frame_counter = 0
     trial_index = 0
     file_counter = 0
     was_stimuli = False
@@ -107,15 +104,20 @@ def stimuli_export(stimuli, stimulus_templates, output_dir, frame_rate=60,
     # Ensure the output directory exists
     if not os.path.exists(output_dir):
         print("Please run the create_directory_structure function first.")
+
+    # saving the start_times as timestamps
+    np.save("../data/example_experiment/screen/timestamps.npy", stimuli['start_time'].to_numpy())
     
     for idx, row in tqdm(stimuli.iterrows(), desc="processing data"):
 
         # constructing file name and getting data
-        yaml_filename = os.path.join(output_dir, f"meta/{file_counter:05}.yaml")
+        yaml_filename = os.path.join(output_dir, f"meta/{file_counter:05}.yml")
         npy_filename = os.path.join(output_dir, f"data/{file_counter:05}.npy")
 
         # checking if image_name is string to prevent crashes when checking if 'im' is in image
         image_name = row['image_name']
+        first_frame_idx = row["start_frame"]
+        end_frame = row["end_frame"]
         is_string = isinstance(image_name, str)
 
         # stimuli is image
@@ -123,8 +125,9 @@ def stimuli_export(stimuli, stimulus_templates, output_dir, frame_rate=60,
                         
             # make data for blank yaml if the previous row was image
             if was_stimuli:
-                yaml_filename, npy_filename, file_counter, frame_counter = write_grey(output_dir, yaml_filename,
-                                                                                      frame_counter, file_counter, image_size)
+                yaml_filename, npy_filename, file_counter = write_grey(output_dir, yaml_filename,
+                                                                                      first_frame_idx, file_counter, image_size,
+                                                                                     blank_period, frame_rate)
 
             
             # get current stimuli template, use this if you want one file for each stimuli
@@ -135,9 +138,9 @@ def stimuli_export(stimuli, stimulus_templates, output_dir, frame_rate=60,
                 col: row[col] for col in ['image_name', 'duration', 'stimulus_block_name']} | {
                 'image_name': image_name,
                 'modality': 'image',
-                'frame_counter': frame_counter,
+                'first_frame_idx': first_frame_idx,
                 'trial_index': trial_index,
-                'num_frames': 1,
+                'num_frames': end_frame - first_frame_idx,
                 'image_size': image_size,
                 'pre_blank_period': row['start_time'] - prev_end_time
             }
@@ -152,13 +155,13 @@ def stimuli_export(stimuli, stimulus_templates, output_dir, frame_rate=60,
         # stimuli is grey_screen might have to watchout for image_size and interleave_value
         elif is_string and 'omitted' in image_name or np.isnan(image_name) and 'gray_screen' in row['stimulus_block_name']:
             data_grey = {
-                    'first_frame_index': frame_counter,
+                    'first_frame_idx': first_frame_idx,
+                    'image_name': 'blank',
                     'image_size': image_size,
                     'modality': 'blank',
-                    'num_frames': 1
+                    'num_frames': end_frame - first_frame_idx
                 }
             write_yaml(data_grey, yaml_filename)
-            frame_counter +=1
             prev_end_time = row['start_time']
 
             # if image was omitted a grey screen still appears
@@ -177,19 +180,21 @@ def stimuli_export(stimuli, stimulus_templates, output_dir, frame_rate=60,
 
             # add grey screen if previous stimuli is image
             if was_stimuli:
-                yaml_filename, npy_filename, file_counter, frame_counter = write_grey(output_dir, yaml_filename,
-                                                                                      frame_counter, file_counter, image_size)
+                yaml_filename, npy_filename, file_counter = write_grey(output_dir, yaml_filename,
+                                                                                      first_frame_idx, file_counter, image_size,
+                                                                                     blank_period, frame_rate)
 
-            movie = np.load(f'../data/movies/{row["stimulus_block_name"]}.npy')
+            movie_name = row["stimulus_block_name"]
+            movie = np.load(f'../data/movies/{movie_name}.npy')
             mv_size = movie.shape
             
             mv_data = {
-                'move_name': image_name,
+                'image_name': movie_name,
                 'modality': 'video',
-                'first_frame_idx': frame_counter,
+                'first_frame_idx': first_frame_idx,
                 'trial_index': trial_index,
                 'num_frames': mv_size[0],
-                'image_size': mv_size[:1],
+                'image_size': [mv_size[1], mv_size[2]],
                 'pre_blank_period': row['start_time'] - prev_end_time
             }
 
@@ -200,9 +205,9 @@ def stimuli_export(stimuli, stimulus_templates, output_dir, frame_rate=60,
             prev_end_time = row['end_time']
 
         file_counter += 1
-        frame_counter +=1
-
+    
     print("Visual stimuli sucesfully exported")
+    print(f"{file_counter} Files were created!")
 
 
 # function to export treadmill data
@@ -220,7 +225,7 @@ def treadmill_export(speed_table, sampling_rate, output_dir):
         'n_signals': 1,
         'n_timestamps': nr_rows, ### lenght of columns
         'phase_shift_per_signal': False, ### pretty sure it's always false
-        'sampling_rate': sampling_rate, ### probably the measurement frequency which is 60 hz, check if we can get this with .metadata
+        'sampling_rate': float(sampling_rate), ### probably the measurement frequency which is 60 hz, check if we can get this with .metadata
         'start_time': float(speed_table['timestamps'].iloc[0]) ### first column of timestamps
     }
     
@@ -248,8 +253,8 @@ def dff_export(dff_table, event_table, timestamps, cells_table, depth, sampling_
         'modality': 'sequence',
         'n_signals': nr_signals,
         'n_timestamps': nr_rows, ### lenght of columns
-        'phase_shift_per_signal': True, ### pretty sure it's always True here
-        'sampling_rate': sampling_rate, ### stated in .metadata this is hardcoded and 
+        'phase_shift_per_signal': False, ### pretty sure it's always True here but I can't find any info on how to get the phaseshifts
+        'sampling_rate': float(sampling_rate), ### stated in .metadata this is hardcoded and 
         'start_time': float(timestamps[0]) ### first column of timestamps
     }
     
@@ -261,7 +266,7 @@ def dff_export(dff_table, event_table, timestamps, cells_table, depth, sampling_
     print(f'Shape of dff_values : {dff_values.shape}')
     print(f'Shape of event_values : {event_values.shape}')
 
-    write_mem(dff_values, output_dir, 'data_dff')
+    write_mem(dff_values, output_dir)
     write_mem(event_values, output_dir, 'data_events')
 
     # write additional info into npy files
@@ -298,7 +303,7 @@ def eye_tracker_export(eye_tracking_table, output_dir):
         'n_signals': n_signals-1, # subtract one because we  do not want timestamps to be included here
         'n_timestamps': nr_rows,
         'phase_shift_per_signal': False, ### pretty sure it's always false here
-        'sampling_rate': sampling_rate, 
+        'sampling_rate': float(sampling_rate), 
         'start_time': float(eye_tracking_table['timestamps'].iloc[0]) ### first column of timestamps
     }
     
