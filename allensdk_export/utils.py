@@ -5,6 +5,7 @@ import os
 import yaml
 
 import numpy as np
+import pandas as pd
 
 
 ### function for creating directory structure
@@ -73,7 +74,6 @@ def save_movies():
         print("movie 3 saved")
 
     print("Done saving movies")
-
 
 # small helper function for writing yamls
 
