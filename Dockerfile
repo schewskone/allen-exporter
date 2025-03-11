@@ -3,6 +3,7 @@ FROM python:3.10-slim
 
 # Set working directory in the container
 WORKDIR /src
+COPY . /src
 
 # Install system dependencies for AllenSDK and Jupyter
 RUN apt-get update && apt-get install -y \
@@ -12,15 +13,12 @@ RUN apt-get update && apt-get install -y \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements file into the container
-COPY requirements.txt .
-
-RUN git clone https://github.com/tomschewski/experanto.git /src/experanto
 
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt \
-    && pip install --no-cache-dir notebook \
-    && pip install --no-cache-dir -e /src/experanto
+    && pip install --no-cache-dir -e /src/experanto \
+    # && pip install --no-cache-dir -e /src/sensorium_2023 \ since there is no setup.py we can't do this
+    && pip install --no-cache-dir -e /src/neuralpredictors
 
 
 # Expose the default Jupyter Notebook port

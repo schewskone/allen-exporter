@@ -3,13 +3,12 @@ import os
 import yaml
 from tqdm import tqdm
 
-from utils import write_yaml, write_mem
+from utils import create_directory_structure, save_movies, write_yaml, write_mem
 
-# export function for exporting stimuli
-# currently with duplicate images and videos. might want to fix later
 
 def calculate_metrics(stimulus_table, stimulus_templates, running_speed_table,
-                      dff_table, event_table, eye_tracking_table, path='../data/example_experiment/'):
+                      dff_table, event_table, eye_tracking_table, path):
+    
     # images : average imagecolor over time considering the distribution of images shown
     stimulus_images = stimulus_table[stimulus_table['image_name'].str.contains('im', case=False, na=False)]
     images_mean = stimulus_templates['warped'].sort_index().apply(np.mean) #use .apply here for row wise mean
@@ -18,27 +17,27 @@ def calculate_metrics(stimulus_table, stimulus_templates, running_speed_table,
     mean_pixel = str(np.mean(images_mean * (counts / nr_rows)))
 
     data = {'mean_pixel': mean_pixel}
-    write_yaml(data, path+'screen/meta/mean.yml')
+    write_yaml(data, path+'/screen/meta/mean.yml')
 
     # treadmill : average running speed
     mean_speed = str(running_speed_table['speed'].mean())
     data = {'mean_speed': mean_speed}
-    write_yaml(data, path+'treadmill/meta/mean.yml')
+    write_yaml(data, path+'/treadmill/meta/mean.yml')
 
     # dff : average response
     mean_dff = str(np.mean(dff_table['dff'].mean()))
     mean_event = str(np.mean(event_table['events'].mean()))
     data = {'mean_dff': mean_dff,
             'mean_event': mean_event}
-    write_yaml(data, path+'responses/meta/mean.yml')
+    write_yaml(data, path+'/responses/meta/mean.yml')
     
     # eye tracker : average of everything
     eye_tracking_data = eye_tracking_table.drop('timestamps', axis=1)
     mean_values = eye_tracking_data.mean()
     data = {col: str(mean) for col, mean in mean_values.items()}
-    write_yaml(data, path+"eye_tracker/meta/mean.yml")
+    write_yaml(data, path+"/eye_tracker/meta/mean.yml")
 
-    print('Metrics calculated succesfully')
+    #print('Metrics calculated succesfully')
     
 
 def save_images(stimulus_table, stimulus_templates, output_dir):
@@ -59,7 +58,7 @@ def save_images(stimulus_table, stimulus_templates, output_dir):
         npy_path = os.path.join(output_dir, f"{name}.npy")
         np.save(npy_path, movie)
         
-    print('Stimuli saved succesfully')
+    #print('Stimuli saved succesfully')
         
 
 # helper functions for filler grey screens after images and videos
@@ -84,7 +83,7 @@ def write_grey(output_dir, yaml_filename, frame_counter, file_counter, image_siz
     return yaml_filename, npy_filename, file_counter, frame_counter+1
 
 
-def stimuli_export(stimuli, stimulus_templates, output_dir, frame_rate=60,
+def stimuli_export(stimuli, stimulus_templates, output_dir, tier='test', frame_rate=60,
                    blank_period=0.5, presentation_time=0.25, image_size=[1200, 1900], interleave_value = 128):
 
     # make main_yml file with infos for all stimuli
@@ -103,14 +102,10 @@ def stimuli_export(stimuli, stimulus_templates, output_dir, frame_rate=60,
     was_stimuli = False
     prev_end_time = 0
     
-    # Ensure the output directory exists
-    if not os.path.exists(output_dir):
-        print("Please run the create_directory_structure function first.")
-
     # saving the start_times as timestamps
     timestamps = []
     
-    for idx, row in tqdm(stimuli.iterrows(), desc="processing data"):
+    for idx, row in tqdm(stimuli.iterrows(), desc="processing data", position=0, leave=True):
 
         # constructing file name and getting data
         yaml_filename = os.path.join(output_dir, f"meta/{file_counter:05}.yml")
@@ -141,7 +136,7 @@ def stimuli_export(stimuli, stimulus_templates, output_dir, frame_rate=60,
                 col: row[col] for col in ['image_name', 'duration', 'stimulus_block_name']} | {
                 'image_name': image_name,
                 'modality': 'image',
-                'tier': 'train',
+                'tier': tier,
                 'stim_type': 'stimulus.Frame',
                 'first_frame_idx': frame_counter,
                 'trial_index': trial_index,
@@ -198,7 +193,7 @@ def stimuli_export(stimuli, stimulus_templates, output_dir, frame_rate=60,
             mv_data = {
                 'image_name': movie_name,
                 'modality': 'video',
-                'tier': 'train',
+                'tier': tier,
                 'stim_type': 'stimulus.Clip',
                 'first_frame_idx': frame_counter,
                 'trial_index': trial_index,
@@ -217,16 +212,17 @@ def stimuli_export(stimuli, stimulus_templates, output_dir, frame_rate=60,
         file_counter += 1
 
     timestamps.append(stimuli['start_time'].iloc[-1])
-    np.save("../data/example_experiment/screen/timestamps.npy", np.array(timestamps))    
+    np.save(f"{output_dir}/timestamps.npy", np.array(timestamps))    
     
-    print("Visual stimuli sucesfully exported")
-    print(f'Timestamps has len ; {len(timestamps)}')
-    print(f"{file_counter} Files were created!")
+    #print("Visual stimuli sucesfully exported")
+    #print(f'Timestamps has len ; {len(timestamps)}')
+    #print(f"{file_counter} Files were created!")
 
 
 # function to export treadmill data
-def treadmill_export(speed_table, sampling_rate, output_dir):
+def treadmill_export(speed_table, output_dir):
 
+    sampling_rate = speed_table.shape[0] / speed_table["timestamps"].iloc[-1]
     nr_rows = speed_table['speed'].shape[0]
     d_type = str(speed_table['speed'].dtype)
     
@@ -246,11 +242,11 @@ def treadmill_export(speed_table, sampling_rate, output_dir):
     write_yaml(meta_dict, main_yml)
 
     treadmill_data = np.column_stack((speed_table['timestamps'],speed_table['speed']))
-    print(f'Shape of treadmill_data : {treadmill_data.shape}')
+    #print(f'Shape of treadmill_data : {treadmill_data.shape}')
     # speed values to numpy
     write_mem(treadmill_data, output_dir)
 
-    print("Treadmill data exported succesfully")
+    #print("Treadmill data exported succesfully")
 
 
 def dff_export(dff_table, event_table, timestamps, cells_table, depth, sampling_rate, output_dir):
@@ -277,8 +273,8 @@ def dff_export(dff_table, event_table, timestamps, cells_table, depth, sampling_
     # combine all the rows (individual neurons) into a single matrix
     dff_values = np.column_stack(dff_table["dff"].values)
     event_values = np.column_stack(event_table["events"].values)
-    print(f'Shape of dff_values : {dff_values.shape}')
-    print(f'Shape of event_values : {event_values.shape}')
+    #print(f'Shape of dff_values : {dff_values.shape}')
+    #print(f'Shape of event_values : {event_values.shape}')
 
     write_mem(dff_values, output_dir)
     write_mem(event_values, output_dir, 'data_events')
@@ -297,7 +293,7 @@ def dff_export(dff_table, event_table, timestamps, cells_table, depth, sampling_
     motor_coordinates = cells_table[['x','y']].to_numpy()
     np.save(meta_dir+"cell_motor_coordinates.npy", motor_coordinates)
 
-    print("Responese data exported succesfully")
+    #print("Responese data exported succesfully")
 
 
 def eye_tracker_export(eye_tracking_table, output_dir):
@@ -324,11 +320,41 @@ def eye_tracker_export(eye_tracking_table, output_dir):
     write_yaml(meta_dict, main_yml)
 
     eye_tracking_data = eye_tracking_table.drop('timestamps', axis=1).to_numpy()
-    print(f'Shape of eye_tracking_data : {eye_tracking_data.shape}')
+    #print(f'Shape of eye_tracking_data : {eye_tracking_data.shape}')
     write_mem(eye_tracking_data, output_dir)
 
     # save timestamps into meta file
     timestamps = eye_tracking_table['timestamps'].to_numpy()
     np.save(output_dir+"/meta/timestamps.npy", timestamps)
 
-    print("Eyetracker data exported succesfully")
+    #print("Eyetracker data exported succesfully")
+
+
+
+def multi_session_export(cache, ids, tiers, root_folder='../data/allen_data'):
+
+    save_movies()
+    
+    for id, tier  in tqdm(zip(ids, tiers), desc='Processing Experiments', position=0, leave=True):
+        experiment = cache.get_behavior_ophys_experiment(id)
+        base_directory = f'{root_folder}/experiment_{id}'
+        create_directory_structure(base_directory)
+
+        save_images(experiment.stimulus_presentations, experiment.stimulus_templates, f'{base_directory}/screen/data')
+        
+        calculate_metrics(experiment.stimulus_presentations, experiment.stimulus_templates,
+                          experiment.running_speed, experiment.dff_traces,
+                          experiment.events, experiment.eye_tracking, base_directory)
+        
+        stimuli_export(experiment.stimulus_presentations, experiment.stimulus_templates, f'{base_directory}/screen')
+        
+        treadmill_export(experiment.running_speed, f'{base_directory}/treadmill')
+
+        dff_export(experiment.dff_traces, experiment.events, experiment.ophys_timestamps,
+                   experiment.cell_specimen_table, experiment.metadata["imaging_depth"],
+                   experiment.metadata["ophys_frame_rate"], f'{base_directory}/responses')
+        
+        # export of eye_tracking data
+        eye_tracker_export(experiment.eye_tracking, f'{base_directory}/eye_tracker')
+
+    print('Export completed')

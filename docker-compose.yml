@@ -4,9 +4,11 @@ services:
       context: .
       dockerfile: Dockerfile # Use the Dockerfile in the current context
     volumes:
-      - ./allensdk_export:/src/allen_export # Mount code directory
+      - ./allensdk_export:/src/allensdk_export # Mount code directory
       - ./data:/src/data # Mount data directory
-      - ./../experanto:/src/experanto # Mount library
+      - ./experanto:/src/experanto # Mount experanto
+      - ./sensorium_2023:/src/sensorium_2023 # Mount sensorium
+      - ./neuralpredictors:/src/neuralpredictors # Mount neural_predictors
     ports:
       - "8888:8888" # Expose port for Jupyter Notebook
     environment:

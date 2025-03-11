@@ -11,6 +11,8 @@ import pandas as pd
 ### function for creating directory structure
 def create_directory_structure(base_dir):
     # Define the top-level subdirectories
+    os.makedirs('../data/allen_data', exist_ok=True)
+    
     subdirectories = ['eye_tracker', 'responses', 'screen', 'treadmill']
     
     for subdir in subdirectories:
@@ -39,7 +41,7 @@ def create_directory_structure(base_dir):
             
             #print(f"Created {second_level_path}")
     
-    print(f"Directory structure created at {base_dir}")
+    #print(f"Directory structure created at {base_dir}")
 
 
 # function to get natural movies
@@ -73,7 +75,7 @@ def save_movies():
         np.save('../data/movies/natural_movie_three.npy', movie_3)
         print("movie 3 saved")
 
-    print("Done saving movies")
+    #print("Done saving movies")
 
 # small helper function for writing yamls
 
