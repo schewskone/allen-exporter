@@ -1,5 +1,5 @@
 # Use an official Python base image
-FROM python:3.10-slim
+FROM python:3.9-slim
 
 # Set working directory in the container
 WORKDIR /src
@@ -14,11 +14,11 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt \
-    && pip install --no-cache-dir -e /src/experanto \
+RUN pip install --upgrade pip \
+    && pip install -r requirements.txt \
+    && pip install -e /src/experanto \
     # && pip install --no-cache-dir -e /src/sensorium_2023 \ since there is no setup.py we can't do this
-    && pip install --no-cache-dir -e /src/neuralpredictors
+    && pip install -e /src/neuralpredictors
 
 
 # Expose the default Jupyter Notebook port
