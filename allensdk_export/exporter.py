@@ -92,7 +92,6 @@ def stimuli_export(stimuli, stimulus_templates, output_dir, frame_rate=60,
     meta_dict = {
         'modality': 'screen',
         'interleave_value': interleave_value,
-        'tier': 'training',
         'frame_rate': frame_rate 
     }
     
@@ -142,6 +141,8 @@ def stimuli_export(stimuli, stimulus_templates, output_dir, frame_rate=60,
                 col: row[col] for col in ['image_name', 'duration', 'stimulus_block_name']} | {
                 'image_name': image_name,
                 'modality': 'image',
+                'tier': 'train',
+                'stim_type': 'stimulus.Frame',
                 'first_frame_idx': frame_counter,
                 'trial_index': trial_index,
                 'num_frames': end_frame - first_frame_idx,
@@ -197,6 +198,8 @@ def stimuli_export(stimuli, stimulus_templates, output_dir, frame_rate=60,
             mv_data = {
                 'image_name': movie_name,
                 'modality': 'video',
+                'tier': 'train',
+                'stim_type': 'stimulus.Clip',
                 'first_frame_idx': frame_counter,
                 'trial_index': trial_index,
                 'num_frames': mv_size[0],
@@ -252,9 +255,9 @@ def treadmill_export(speed_table, sampling_rate, output_dir):
 
 def dff_export(dff_table, event_table, timestamps, cells_table, depth, sampling_rate, output_dir):
 
-    nr_rows = dff_table['dff'].shape[0]
+    nr_signals = dff_table['dff'].shape[0]
     d_type = str(dff_table['dff'].iloc[0].dtype)
-    nr_signals = dff_table['dff'].iloc[0].shape[0]
+    nr_rows = dff_table['dff'].iloc[0].shape[0]
     
     main_yml = os.path.join(output_dir, "meta.yml")
     meta_dict = {
