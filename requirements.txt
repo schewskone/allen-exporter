@@ -1,7 +1,12 @@
 allensdk==2.16.2
+jupyter
 torch
 torchvision
+torchaudio
+matplotlib
+torchcodec==0.2
 notebook
 nnfabrik
 datajoint
 gitpython
+

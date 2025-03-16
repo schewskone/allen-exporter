@@ -13,7 +13,7 @@ def create_directory_structure(base_dir):
     # Define the top-level subdirectories
     os.makedirs('../data/allen_data', exist_ok=True)
     
-    subdirectories = ['eye_tracker', 'responses', 'screen', 'treadmill']
+    subdirectories = ['eye_tracker', 'responses', 'screen', 'treadmill', 'stimuli']
     
     for subdir in subdirectories:
         # Path for the top-level subdirectory
@@ -25,6 +25,8 @@ def create_directory_structure(base_dir):
         # Define the second-level subdirectory: "meta" for all except "screen"
         if subdir == 'screen':
             second_level_subdirs = ['meta', 'data']
+        elif subdir == 'stimuli':
+            continue
         else:
             second_level_subdirs = ['meta']
         
@@ -42,6 +44,25 @@ def create_directory_structure(base_dir):
             #print(f"Created {second_level_path}")
     
     #print(f"Directory structure created at {base_dir}")
+
+
+def add_blank_times(df):
+    new_rows = []
+    
+    for i in range(1, len(df)):
+        prev_end = df.loc[i - 1, "end_time"]
+        curr_start = df.loc[i, "start_time"]
+
+        # Check if there's a gap
+        if curr_start > prev_end:
+            new_rows.append({"start_time": prev_end, "end_time": curr_start})
+
+    # Append missing rows to the DataFrame
+    if new_rows:
+        df = pd.concat([df, pd.DataFrame(new_rows)], ignore_index=True)
+
+    # Resort DataFrame to maintain order
+    return df.sort_values(by="start_time").reset_index(drop=True)
 
 
 # function to get natural movies
