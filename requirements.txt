@@ -9,4 +9,4 @@ notebook
 nnfabrik
 datajoint
 gitpython
-
+wandb

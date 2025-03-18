@@ -7,6 +7,8 @@ experanto/
 neuralpredictors/
 sensorium_2023/
 example_experiment/
+*.sif
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

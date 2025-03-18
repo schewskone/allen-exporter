@@ -3,7 +3,10 @@ FROM python:3.9-slim
 
 # Set working directory in the container
 WORKDIR /src
-COPY . /src
+COPY experanto /src/experanto
+COPY neuralpredictors /src/neuralpredictors
+COPY sensorium_2023 /src/sensorum_2023
+COPY requirements.txt /src
 
 # Install system dependencies for AllenSDK and Jupyter
 RUN apt-get update && \
