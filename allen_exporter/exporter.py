@@ -3,7 +3,7 @@ import os
 import yaml
 from tqdm import tqdm
 
-from utils import create_directory_structure, save_movies, write_yaml, write_mem, add_blank_times
+from allen_exporter.utils import create_directory_structure, save_movies, write_yaml, write_mem, add_blank_times, get_experiment_ids
 
 
 def calculate_metrics(stimulus_table, stimulus_templates, running_speed_table,
@@ -325,14 +325,19 @@ def eye_tracker_export(eye_tracking_table, output_dir):
 
 
 
-def multi_session_export(cache, ids, tiers, root_folder='../data/allen_data'):
+def multi_session_export(ammount, tiers, root_folder='../data/allen_data', cache_dir='../data/./visual_behaviour_cache'):
 
     save_movies()
+    cache, ids = get_experiment_ids(cache_dir, ammount)
     
-    for id, tier  in tqdm(zip(ids, tiers), desc='Processing Experiments', position=0, leave=True):
-        experiment = cache.get_behavior_ophys_experiment(id)
-        base_directory = f'{root_folder}/experiment_{id}'
-        create_directory_structure(base_directory)
+    experiments = []
+    for id in ids:
+        print(f'Fetching experiment {id}')
+        experiments.append(cache.get_behavior_ophys_experiment(id))
+    
+    for i, (experiment, tier) in enumerate(tqdm(zip(experiments, tiers), desc=f'Processing Experiment {id}', leave=True)):
+        base_directory = f'{root_folder}/experiment_{ids[i]}'
+        create_directory_structure(root_folder, base_directory)
 
         save_images(experiment.stimulus_presentations, experiment.stimulus_templates, f'{base_directory}/stimuli')
         
@@ -352,3 +357,4 @@ def multi_session_export(cache, ids, tiers, root_folder='../data/allen_data'):
         eye_tracker_export(experiment.eye_tracking, f'{base_directory}/eye_tracker')
 
     print('Export completed')
+    return cache, ids

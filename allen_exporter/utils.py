@@ -1,5 +1,7 @@
 # for getting movie data
 from allensdk.core.brain_observatory_cache import BrainObservatoryCache
+from allensdk.brain_observatory.behavior.behavior_ophys_experiment import BehaviorOphysExperiment
+from allensdk.brain_observatory.behavior.behavior_project_cache import VisualBehaviorOphysProjectCache
 
 import os
 import yaml
@@ -8,10 +10,26 @@ import numpy as np
 import pandas as pd
 
 
+def generate_cache(cache_dir):
+    if not os.path.exists(cache_dir):
+        os.makedirs(cache_dir)
+
+    cache = VisualBehaviorOphysProjectCache.from_s3_cache(cache_dir=cache_dir)
+
+    return cache
+
+
+def get_experiment_ids(cache_dir='../data/./visual_behaviour_cache' ,ammount=2):       
+    cache=generate_cache(cache_dir)
+    experiments = cache.get_ophys_experiment_table()
+    ids = experiments.index[:ammount]
+    return cache, ids
+
+
 ### function for creating directory structure
-def create_directory_structure(base_dir):
+def create_directory_structure(root_folder, base_dir):
     # Define the top-level subdirectories
-    os.makedirs('../data/allen_data', exist_ok=True)
+    os.makedirs(root_folder, exist_ok=True)
     
     subdirectories = ['eye_tracker', 'responses', 'screen', 'treadmill', 'stimuli']
     
@@ -66,13 +84,11 @@ def add_blank_times(df):
 
 
 # function to get natural movies
-def save_movies():
+def save_movies(data_folder='../data/movies', cache_directory="../data/brain_observatory"):
 
     # download the necessary data_sets which include the movies
     # already have movie 1 and 2 but we need another set which contains set 3
 
-    # Specify the cache directory
-    cache_directory = "../data/brain_observatory"
     
     # Specify the path to the manifest file
     manifest_file = f"{cache_directory}/boc_manifest.json"
@@ -83,17 +99,17 @@ def save_movies():
     mv_1_3 = boc.get_ophys_experiment_data(501940850)
     mv_2 = 0
 
-    if not os.path.exists('../data/movies'):
-        os.makedirs('../data/movies', exist_ok=True)
+    if not os.path.exists(data_folder):
+        os.makedirs(data_folder, exist_ok=True)
             
-    if not os.path.exists('../data/movies/natural_movie_one.npy'):
+    if not os.path.exists(data_folder + '/natural_movie_one.npy'):
         movie_1 = mv_1_3.get_stimulus_template('natural_movie_one')
-        np.save('../data/movies/natural_movie_one.npy', movie_1)
+        np.save(data_folder + '/natural_movie_one.npy', movie_1)
         print("movie 1 saved")
 
-    if not os.path.exists('../data/movies/natural_movie_three.npy'):
+    if not os.path.exists(data_folder + '/natural_movie_three.npy'):
         movie_3 = mv_1_3.get_stimulus_template('natural_movie_three')
-        np.save('../data/movies/natural_movie_three.npy', movie_3)
+        np.save(data_folder + '/natural_movie_three.npy', movie_3)
         print("movie 3 saved")
 
     #print("Done saving movies")
