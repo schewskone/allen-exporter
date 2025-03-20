@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 
 
+# setup for export
 def generate_cache(cache_dir):
     if not os.path.exists(cache_dir):
         os.makedirs(cache_dir)
@@ -58,12 +59,9 @@ def create_directory_structure(root_folder, base_dir):
             if second_level_subdir == 'meta':
                 with open(second_level_path+".yml", 'w') as file:
                     yaml.dump({}, file, default_flow_style=False)
-            
-            #print(f"Created {second_level_path}")
-    
-    #print(f"Directory structure created at {base_dir}")
 
 
+# function to add times for blanks
 def add_blank_times(df):
     new_rows = []
     
@@ -83,12 +81,11 @@ def add_blank_times(df):
     return df.sort_values(by="start_time").reset_index(drop=True)
 
 
-# function to get natural movies
+# extra function to save movies since they are not in the templates
 def save_movies(data_folder='../data/movies', cache_directory="../data/brain_observatory"):
 
     # download the necessary data_sets which include the movies
     # already have movie 1 and 2 but we need another set which contains set 3
-
     
     # Specify the path to the manifest file
     manifest_file = f"{cache_directory}/boc_manifest.json"
@@ -112,7 +109,6 @@ def save_movies(data_folder='../data/movies', cache_directory="../data/brain_obs
         np.save(data_folder + '/natural_movie_three.npy', movie_3)
         print("movie 3 saved")
 
-    #print("Done saving movies")
 
 # small helper function for writing yamls
 
