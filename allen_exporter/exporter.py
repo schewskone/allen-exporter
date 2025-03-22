@@ -329,8 +329,8 @@ def multi_session_export(ammount, tiers, root_folder='../data/allen_data', cache
         calculate_metrics(experiment.stimulus_presentations, experiment.stimulus_templates,
                           experiment.running_speed, experiment.dff_traces,
                           experiment.events, experiment.eye_tracking, base_directory)
-        
-        stimuli_export(experiment.stimulus_presentations, experiment.stimulus_templates, f'{base_directory}/screen',
+
+        stimuli_export(experiment.stimulus_presentations, experiment.stimulus_templates, f'{base_directory}/screen', tiers,
                       frame_rate, blank_period, presentation_time, image_size, interleave_value)
         
         treadmill_export(experiment.running_speed, f'{base_directory}/treadmill')
