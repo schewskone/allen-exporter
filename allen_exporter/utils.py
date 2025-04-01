@@ -20,10 +20,11 @@ def generate_cache(cache_dir):
     return cache
 
 
-def get_experiment_ids(cache_dir='../data/./visual_behaviour_cache' ,ammount=2):       
+def get_experiment_ids(cache_dir='../data/./visual_behaviour_cache' ,ammount=2, ids=None):       
     cache=generate_cache(cache_dir)
     experiments = cache.get_ophys_experiment_table()
-    ids = experiments.index[:ammount]
+    if ids == None:
+        ids = experiments.index[:ammount]
     return cache, ids
 
 

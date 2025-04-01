@@ -5,38 +5,50 @@ from tqdm import tqdm
 
 from allen_exporter.utils import create_directory_structure, save_movies, write_yaml, write_mem, add_blank_times, get_experiment_ids
 
-
-# calculate averages for all the different modalities
+    
 def calculate_metrics(stimulus_table, stimulus_templates, running_speed_table,
                       dff_table, event_table, eye_tracking_table, path):
-    
-    # images : average imagecolor over time considering the distribution of images shown
+
+    # Screen: mean and std of pixel values, weighted by image distribution
     stimulus_images = stimulus_table[stimulus_table['image_name'].str.contains('im', case=False, na=False)]
-    images_mean = stimulus_templates['warped'].sort_index().apply(np.mean) #use .apply here for row wise mean
+    images_mean = stimulus_templates['warped'].sort_index().apply(np.mean)
+    images_std = stimulus_templates['warped'].sort_index().apply(np.std)
+
     counts = stimulus_images['image_name'].value_counts().sort_index()
-    nr_rows = sum(counts)
-    mean_pixel = str(np.mean(images_mean * (counts / nr_rows)))
+    nr_rows = counts.sum()
 
-    data = {'mean_pixel': mean_pixel}
-    write_yaml(data, path+'/screen/meta/mean.yml')
+    weights = counts / nr_rows
+    mean_pixel = np.sum(images_mean * weights)
+    std_pixel = np.sqrt(np.sum((images_std**2 + (images_mean - mean_pixel)**2) * weights))
 
-    # treadmill : average running speed
-    mean_speed = str(running_speed_table['speed'].mean())
-    data = {'mean_speed': mean_speed}
-    write_yaml(data, path+'/treadmill/meta/mean.yml')
+    np.save(os.path.join(path, 'screen/meta/means.npy'), mean_pixel)
+    np.save(os.path.join(path, 'screen/meta/stds.npy'), std_pixel)
 
-    # dff : average response
-    mean_dff = str(np.mean(dff_table['dff'].mean()))
-    mean_event = str(np.mean(event_table['events'].mean()))
-    data = {'mean_dff': mean_dff,
-            'mean_event': mean_event}
-    write_yaml(data, path+'/responses/meta/mean.yml')
-    
-    # eye tracker : average of everything
-    eye_tracking_data = eye_tracking_table.drop('timestamps', axis=1)
+    # Treadmill: average and std of running speed
+    mean_speed = running_speed_table['speed'].mean()
+    std_speed = running_speed_table['speed'].std()
+
+    np.save(os.path.join(path, 'treadmill/meta/means.npy'), mean_speed)
+    np.save(os.path.join(path, 'treadmill/meta/stds.npy'), std_speed)
+
+    # dF/F and events: average and std
+    neurons = np.stack(dff_table['dff'].values)
+
+    # Compute mean and std along axis 0 (i.e., for each position 0–11)
+    mean_values = np.mean(neurons, axis=1)
+    std_values = np.std(neurons, axis=1)
+
+    np.save(os.path.join(path, 'responses/meta/means.npy'), np.array([mean_values]))
+    np.save(os.path.join(path, 'responses/meta/stds.npy'), np.array([std_values]))
+
+    # Eye tracker: mean and std of all columns (except timestamps)
+    eye_tracking_data = eye_tracking_table.drop(columns='timestamps', errors='ignore')
     mean_values = eye_tracking_data.mean()
-    data = {col: str(mean) for col, mean in mean_values.items()}
-    write_yaml(data, path+"/eye_tracker/meta/mean.yml")
+    std_values = eye_tracking_data.std()
+
+    np.save(os.path.join(path, 'eye_tracker/meta/means.npy'), mean_values.to_numpy())
+    np.save(os.path.join(path, 'eye_tracker/meta/stds.npy'), std_values.to_numpy())
+
     
 
 # function to save all the images once
@@ -249,7 +261,12 @@ def dff_export(dff_table, event_table, timestamps, cells_table, depth, sampling_
         'n_timestamps': nr_rows, ### lenght of columns
         'phase_shift_per_signal': False, ### pretty sure it's always True here but I can't find any info on how to get the phaseshifts
         'sampling_rate': float(sampling_rate), ### stated in .metadata this is hardcoded and 
-        'start_time': float(timestamps[0]) ### first column of timestamps
+        'start_time': float(timestamps[0]), ### first column of timestamps
+        'neuron_properties': {
+            'cell_motor_coordinates': 'meta/cell_motor_coordinates.npy',
+            'unit_ids': 'meta/unit_ids.npy',
+            'fields': 'meta/fields.npy'
+        }
     }
     
     write_yaml(meta_dict, main_yml)
@@ -274,6 +291,12 @@ def dff_export(dff_table, event_table, timestamps, cells_table, depth, sampling_
     # coordinates of cells
     motor_coordinates = cells_table[['x','y']].to_numpy()
     np.save(meta_dir+"cell_motor_coordinates.npy", motor_coordinates)
+    # ids of cells
+    unit_ids = cells_table.index.to_numpy()
+    np.save(meta_dir+"unit_ids.npy", unit_ids)
+    # ids of cells
+    fields = cells_table['height'].to_numpy()
+    np.save(meta_dir+"fields.npy", fields)
 
     #print("Responese data exported succesfully")
 
@@ -309,20 +332,22 @@ def eye_tracker_export(eye_tracking_table, output_dir):
     np.save(output_dir+"/meta/timestamps.npy", timestamps)
 
 
-def multi_session_export(ammount, tiers, root_folder='../data/allen_data', cache_dir='../data/./visual_behaviour_cache',
+def multi_session_export(ammount, tiers, ids=None, root_folder='../data/allen_data', cache_dir='../data/./visual_behaviour_cache',
                         frame_rate=60, blank_period=0.5, presentation_time=0.25, image_size=[1200, 1900], interleave_value = 128):
 
     save_movies()
-    cache, ids = get_experiment_ids(cache_dir, ammount)
+    cache, ids = get_experiment_ids(cache_dir, ammount, ids)
     
-    experiments = []
+    experiments = {}
     for id in ids:
-        print(f'Fetching experiment {id}')
-        experiments.append(cache.get_behavior_ophys_experiment(id))
+        if id not in experiments.keys():
+            print(f'Fetching experiment {id}')
+            experiments[id] = cache.get_behavior_ophys_experiment(id)
     
-    for i, (experiment, tier) in enumerate(tqdm(zip(experiments, tiers), desc=f'Processing Experiment {id}', leave=True)):
-        base_directory = f'{root_folder}/experiment_{ids[i]}'
+    for id, tier in tqdm(zip(ids, tiers), desc=f'Processing Experiment {id}', leave=True):
+        base_directory = f'{root_folder}/experiment_{id}_{tier}'
         create_directory_structure(root_folder, base_directory)
+        experiment = experiments[id]
 
         save_images(experiment.stimulus_presentations, experiment.stimulus_templates, f'{base_directory}/stimuli')
         
