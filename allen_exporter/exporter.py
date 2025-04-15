@@ -3,7 +3,7 @@ import os
 import yaml
 from tqdm import tqdm
 
-from allen_exporter.utils import create_directory_structure, save_movies, write_yaml, write_mem, add_blank_times, get_experiment_ids
+from allen_exporter.utils import create_directory_structure, save_movies, write_yaml, write_mem, add_blank_times, get_experiment_ids, grayscale_to_rgb_video
 
     
 def calculate_metrics(stimulus_table, stimulus_templates, running_speed_table,
@@ -52,7 +52,7 @@ def calculate_metrics(stimulus_table, stimulus_templates, running_speed_table,
     
 
 # function to save all the images once
-def save_images(stimulus_table, stimulus_templates, output_dir):
+def save_images(stimulus_table, stimulus_templates, output_dir, compressed=True):
     images = stimulus_templates['warped']
     idxs = images.index
         
@@ -64,10 +64,17 @@ def save_images(stimulus_table, stimulus_templates, output_dir):
     # save all movies used
     mv_names = stimulus_table[stimulus_table['stimulus_block_name'].str.contains('movie', case=False, na=False)]['stimulus_block_name'].unique()
 
-    for name in mv_names:
-        movie = np.load(f'../data/movies/{name}.npy')
-        npy_path = os.path.join(output_dir, f"{name}.npy")
-        np.save(npy_path, movie)
+    if compressed:
+        for name in mv_names:
+            movie = np.load(f'../data/movies/{name}.npy')
+            output_path = os.path.join(output_dir, f"{name}")
+            grayscale_to_rgb_video(movie, output_path, fps=30, crf=23)
+            
+    else:
+        for name in mv_names:
+            movie = np.load(f'../data/movies/{name}.npy')
+            npy_path = os.path.join(output_dir, f"{name}.npy")
+            np.save(npy_path, movie)
         
 
 # helper functions for filler grey screens after images and videos
@@ -94,9 +101,10 @@ def write_grey(output_dir, yaml_filename, frame_counter, file_counter, image_siz
 
 
 # full creation of yml files for the exported stimuli
-def stimuli_export(stimuli, stimulus_templates, output_dir, tier='test', frame_rate=60,
-                   blank_period=0.5, presentation_time=0.25, image_size=[1200, 1900], interleave_value = 128):
+def stimuli_export(stimuli, stimulus_templates, output_dir, tier='test',
+                   blank_period=0.5, presentation_time=0.25, image_size=[1200, 1900], interleave_value=128, compressed=True):
 
+    frame_rate = float(stimuli['end_frame'].iloc[-1] / stimuli['end_time'].iloc[-1])
     # make main_yml file with infos for all stimuli
     main_yml = os.path.join(output_dir, "meta.yml")
     meta_dict = {
@@ -106,10 +114,9 @@ def stimuli_export(stimuli, stimulus_templates, output_dir, tier='test', frame_r
     
     write_yaml(meta_dict, main_yml)
 
-    timestamps = add_blank_times(stimuli[['start_time', 'end_time']])
-    timestamps = timestamps['start_time'].to_numpy()
-    np.save(f'{output_dir}/timestamps.npy', timestamps)
-
+    # Create empty list to store timestamps for each YAML file
+    timestamps = []
+    
     trial_index = 0
     file_counter = 0
     frame_counter = 0
@@ -127,16 +134,22 @@ def stimuli_export(stimuli, stimulus_templates, output_dir, tier='test', frame_r
         first_frame_idx = row["start_frame"]
         end_frame = row["end_frame"]
         is_string = isinstance(image_name, str)
+        current_time = row['start_time']
 
         # stimuli is image
         if is_string and 'im' in image_name:
                         
             # make data for blank yaml if the previous row was image
             if was_stimuli:
-                yaml_filename, npy_filename, file_counter, frame_counter = write_grey(output_dir, yaml_filename, frame_counter,
-                                                                                     file_counter, image_size,
-                                                                                     blank_period, frame_rate)
-
+                blank_yaml_filename = os.path.join(output_dir, f"meta/{file_counter:05}.yml")
+                
+                # Calculate time for the blank screen
+                blank_time = prev_end_time
+                timestamps.append(blank_time)
+                
+                yaml_filename, npy_filename, file_counter, frame_counter = write_grey(output_dir, blank_yaml_filename, frame_counter,
+                                                                                      file_counter, image_size,
+                                                                                      blank_period, frame_rate)
 
             img_data = {
                 col: row[col] for col in ['image_name', 'duration', 'stimulus_block_name']} | {
@@ -153,9 +166,12 @@ def stimuli_export(stimuli, stimulus_templates, output_dir, tier='test', frame_r
             
             # write yaml with image metadata
             write_yaml(img_data, yaml_filename)
+            
+            # Add timestamp for this image
+            timestamps.append(current_time)
+            
             was_stimuli = True
             prev_end_time = row['end_time']
-
 
         # stimuli is grey_screen might have to watchout for image_size and interleave_value
         elif is_string and 'omitted' in image_name or np.isnan(image_name) and 'gray_screen' in row['stimulus_block_name']:
@@ -168,35 +184,52 @@ def stimuli_export(stimuli, stimulus_templates, output_dir, tier='test', frame_r
                     'num_frames': end_frame - first_frame_idx
                 }
             write_yaml(data_grey, yaml_filename)
+            
+            # Add timestamp for this blank screen
+            timestamps.append(current_time)
+            
             prev_end_time = row['start_time']
-            trial_index -= 1 ### lowering it by one since it increases at the end but shouldn´t
+            trial_index -= 1  # lowering it by one since it increases at the end but shouldn't
+            
             # if image was omitted a grey screen still appears
             if is_string:
                 was_stimuli = True
-
             else:
                 was_stimuli = False
 
         # stimuli is video
         else:
-
             # only write movie when first frame appears not for every frame
             if row['movie_frame_index'] != 0:
                 continue
 
             # add grey screen if previous stimuli is image
             if was_stimuli:
-                yaml_filename, npy_filename, file_counter, frame_counter = write_grey(output_dir, yaml_filename, frame_counter,
-                                                                                     file_counter, image_size,
-                                                                                     blank_period, frame_rate)
+                blank_yaml_filename = os.path.join(output_dir, f"meta/{file_counter:05}.yml")
+                
+                # Calculate time for the blank screen
+                blank_time = prev_end_time
+                timestamps.append(blank_time)
+                
+                yaml_filename, npy_filename, file_counter, frame_counter = write_grey(output_dir, blank_yaml_filename, frame_counter,
+                                                                                      file_counter, image_size,
+                                                                                      blank_period, frame_rate)
 
             movie_name = row["stimulus_block_name"]
             movie = np.load(f'../data/movies/{movie_name}.npy')
             mv_size = movie.shape
+
+            if compressed:
+                modality = 'encodedvideo'
+                file_format = '.mp4'
+            else:
+                modality = 'video'
+                file_format = '.npy'
             
             mv_data = {
                 'image_name': movie_name,
-                'modality': 'video',
+                'modality': modality,
+                'file_format': file_format,
                 'tier': tier,
                 'stim_type': 'stimulus.Clip',
                 'first_frame_idx': frame_counter,
@@ -206,6 +239,12 @@ def stimuli_export(stimuli, stimulus_templates, output_dir, tier='test', frame_r
                 'pre_blank_period': row['start_time'] - prev_end_time
             }
 
+            # Add timestamp for this video
+            timestamps.append(current_time)
+            
+            for frame_idx in range(1, mv_size[0]):  # Start from 1 since we already added the first timestamp
+                timestamps.append(current_time + frame_idx * (2 / frame_rate))  ### 2 here because for some reason movie framerate is 30fps
+            
             frame_counter += mv_size[0] - 1
             write_yaml(mv_data, yaml_filename)
             prev_end_time = row['end_time']
@@ -213,6 +252,11 @@ def stimuli_export(stimuli, stimulus_templates, output_dir, tier='test', frame_r
         frame_counter += 1
         trial_index += 1
         file_counter += 1
+    
+    # Convert timestamps to numpy array and save it
+    timestamps_array = np.array(timestamps)
+    print(f'This is timestamps shape : {timestamps_array.shape}')
+    np.save(f'{output_dir}/timestamps.npy', timestamps_array)
 
 
 # function to export treadmill data
@@ -245,11 +289,13 @@ def treadmill_export(speed_table, output_dir):
     #print("Treadmill data exported succesfully")
 
 
-def dff_export(dff_table, event_table, timestamps, cells_table, depth, sampling_rate, output_dir):
+def dff_export(dff_table, event_table, timestamps, cells_table, depth, output_dir):
 
     nr_signals = dff_table['dff'].shape[0]
     d_type = str(dff_table['dff'].iloc[0].dtype)
     nr_rows = dff_table['dff'].iloc[0].shape[0]
+
+    sampling_rate = (dff_table['dff'].values[0].shape / (timestamps[-1] - timestamps[0]))[0]
     
     main_yml = os.path.join(output_dir, "meta.yml")
     meta_dict = {
@@ -332,8 +378,8 @@ def eye_tracker_export(eye_tracking_table, output_dir):
     np.save(output_dir+"/meta/timestamps.npy", timestamps)
 
 
-def multi_session_export(ammount, tiers, ids=None, root_folder='../data/allen_data', cache_dir='../data/./visual_behaviour_cache',
-                        frame_rate=60, blank_period=0.5, presentation_time=0.25, image_size=[1200, 1900], interleave_value = 128):
+def multi_session_export(ammount, tiers, compressed=True, ids=None, root_folder='../data/allen_data', cache_dir='../data/./visual_behaviour_cache',
+                         blank_period=0.5, presentation_time=0.25, image_size=[1200, 1900], interleave_value = 128):
 
     save_movies()
     cache, ids = get_experiment_ids(cache_dir, ammount, ids)
@@ -349,20 +395,19 @@ def multi_session_export(ammount, tiers, ids=None, root_folder='../data/allen_da
         create_directory_structure(root_folder, base_directory)
         experiment = experiments[id]
 
-        save_images(experiment.stimulus_presentations, experiment.stimulus_templates, f'{base_directory}/stimuli')
+        save_images(experiment.stimulus_presentations, experiment.stimulus_templates, f'{base_directory}/stimuli', compressed)
         
         calculate_metrics(experiment.stimulus_presentations, experiment.stimulus_templates,
                           experiment.running_speed, experiment.dff_traces,
                           experiment.events, experiment.eye_tracking, base_directory)
 
-        stimuli_export(experiment.stimulus_presentations, experiment.stimulus_templates, f'{base_directory}/screen', tiers,
-                      frame_rate, blank_period, presentation_time, image_size, interleave_value)
+        stimuli_export(experiment.stimulus_presentations, experiment.stimulus_templates, f'{base_directory}/screen', tier,
+                       blank_period, presentation_time, image_size, interleave_value, compressed)
         
         treadmill_export(experiment.running_speed, f'{base_directory}/treadmill')
 
         dff_export(experiment.dff_traces, experiment.events, experiment.ophys_timestamps,
-                   experiment.cell_specimen_table, experiment.metadata["imaging_depth"],
-                   experiment.metadata["ophys_frame_rate"], f'{base_directory}/responses')
+                   experiment.cell_specimen_table, experiment.metadata["imaging_depth"], f'{base_directory}/responses')
         
         # export of eye_tracking data
         eye_tracker_export(experiment.eye_tracking, f'{base_directory}/eye_tracker')

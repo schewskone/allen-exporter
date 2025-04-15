@@ -5,6 +5,7 @@ from allensdk.brain_observatory.behavior.behavior_project_cache import VisualBeh
 
 import os
 import yaml
+import subprocess
 
 import numpy as np
 import pandas as pd
@@ -111,8 +112,50 @@ def save_movies(data_folder='../data/movies', cache_directory="../data/brain_obs
         print("movie 3 saved")
 
 
-# small helper function for writing yamls
+# function to convert npy vids to mp4
+def grayscale_to_rgb_video(grayscale_array, output_path, fps=30, crf=23):
+    # Get dimensions
+    t, h, w = grayscale_array.shape
+    
+    # Scale grayscale to 0-255 range if needed
+    if grayscale_array.max() <= 1.0:
+        grayscale_array = (grayscale_array * 255).astype(np.uint8)
+    else:
+        grayscale_array = grayscale_array.astype(np.uint8)
+    
+    # Convert grayscale to RGB
+    rgb_array = np.stack([grayscale_array] * 3, axis=-1)
+    
+    # Set up FFmpeg command
+    cmd = [
+        'ffmpeg',
+        '-y',  # Overwrite output file if it exists
+        '-f', 'rawvideo',
+        '-vcodec', 'rawvideo',
+        '-s', f'{w}x{h}',  # Width x height
+        '-pix_fmt', 'rgb24',  # Input pixel format
+        '-r', str(fps),    # Frame rate
+        '-i', '-',         # Input from pipe
+        '-c:v', 'libx264',
+        '-preset', 'medium',
+        '-crf', str(crf),
+        f'{output_path}.mp4'
+    ]
+    
+    # Start FFmpeg process
+    process = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    
+    # Prepare all frames at once
+    all_frames = rgb_array.tobytes()
+    
+    # Write all frames to FFmpeg's stdin at once
+    process.stdin.write(all_frames)
+    
+    # Let communicate handle closing stdin
+    stdout, stderr = process.communicate()
 
+
+# small helper function for writing yamls
 def write_yaml(data, file_name):
     # Write the row data to the YAML file
     with open(file_name, 'w') as file:
@@ -120,7 +163,6 @@ def write_yaml(data, file_name):
 
 
 # small helper function for writing data into .mem fles
-
 def write_mem(data, output_dir, filename='data.mem'):
     shape = data.shape
     mem_filename = os.path.join(output_dir, filename)
