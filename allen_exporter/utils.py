@@ -104,12 +104,62 @@ def save_movies(data_folder='../data/movies', cache_directory="../data/brain_obs
     if not os.path.exists(data_folder + '/natural_movie_one.npy'):
         movie_1 = mv_1_3.get_stimulus_template('natural_movie_one')
         np.save(data_folder + '/natural_movie_one.npy', movie_1)
-        print("movie 1 saved")
 
     if not os.path.exists(data_folder + '/natural_movie_three.npy'):
         movie_3 = mv_1_3.get_stimulus_template('natural_movie_three')
         np.save(data_folder + '/natural_movie_three.npy', movie_3)
-        print("movie 3 saved")
+
+
+def get_cutoff_time(ophys_timestamps, frac=0.5):
+    total = len(ophys_timestamps)
+    idx = int(total * frac)
+    return ophys_timestamps[idx]
+
+
+def subsample_data(
+    presentation,  
+    templates,     
+    running,      
+    dff,          
+    events,        
+    eye,           
+    ophys_timestamps,
+    frac=0.5
+):
+    cutoff_time = get_cutoff_time(ophys_timestamps, frac)
+
+    trimmed_presentation = presentation[presentation['start_time'] <= cutoff_time]
+
+    trimmed_ophys_times = ophys_timestamps[ophys_timestamps <= cutoff_time]
+
+    trimmed_dff = dff.copy()
+    trimmed_dff['dff'] = trimmed_dff['dff'].apply(
+        lambda trace: trace[:len(trimmed_ophys_times)]
+    )
+
+    trimmed_events = events.copy()
+    trimmed_events['events'] = trimmed_events['events'].apply(
+        lambda e: e[:len(trimmed_ophys_times)]
+    )
+    if 'filtered_events' in trimmed_events.columns:
+        trimmed_events['filtered_events'] = trimmed_events['filtered_events'].apply(
+            lambda e: e[:len(trimmed_ophys_times)]
+        )
+
+    trimmed_running = running[running['timestamps'] <= cutoff_time]
+
+    trimmed_eye = eye[eye['timestamps'] <= cutoff_time]
+
+    return (
+        trimmed_presentation,
+        templates, 
+        trimmed_running,
+        trimmed_dff,
+        trimmed_events,
+        trimmed_eye,
+        trimmed_ophys_times
+    )
+
 
 
 # function to convert npy vids to mp4

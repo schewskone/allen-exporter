@@ -3,7 +3,7 @@ import os
 import yaml
 from tqdm import tqdm
 
-from allen_exporter.utils import create_directory_structure, save_movies, write_yaml, write_mem, add_blank_times, get_experiment_ids, grayscale_to_rgb_video
+from allen_exporter.utils import create_directory_structure, save_movies, write_yaml, write_mem, add_blank_times, get_experiment_ids, grayscale_to_rgb_video, subsample_data
 
     
 def calculate_metrics(stimulus_table, stimulus_templates, running_speed_table,
@@ -255,7 +255,6 @@ def stimuli_export(stimuli, stimulus_templates, output_dir, tier='test',
     
     # Convert timestamps to numpy array and save it
     timestamps_array = np.array(timestamps)
-    print(f'This is timestamps shape : {timestamps_array.shape}')
     np.save(f'{output_dir}/timestamps.npy', timestamps_array)
 
 
@@ -282,11 +281,8 @@ def treadmill_export(speed_table, output_dir):
     write_yaml(meta_dict, main_yml)
 
     treadmill_data = np.column_stack((speed_table['timestamps'],speed_table['speed']))
-    #print(f'Shape of treadmill_data : {treadmill_data.shape}')
-    # speed values to numpy
     write_mem(treadmill_data, output_dir)
 
-    #print("Treadmill data exported succesfully")
 
 
 def dff_export(dff_table, event_table, timestamps, cells_table, depth, output_dir):
@@ -344,8 +340,6 @@ def dff_export(dff_table, event_table, timestamps, cells_table, depth, output_di
     fields = cells_table['height'].to_numpy()
     np.save(meta_dir+"fields.npy", fields)
 
-    #print("Responese data exported succesfully")
-
 
 def eye_tracker_export(eye_tracking_table, output_dir):
     
@@ -378,8 +372,8 @@ def eye_tracker_export(eye_tracking_table, output_dir):
     np.save(output_dir+"/meta/timestamps.npy", timestamps)
 
 
-def multi_session_export(ammount, tiers, compressed=True, ids=None, root_folder='../data/allen_data', cache_dir='../data/./visual_behaviour_cache',
-                         blank_period=0.5, presentation_time=0.25, image_size=[1200, 1900], interleave_value = 128):
+def multi_session_export(ammount, tiers, ids=None, compressed=True, root_folder='../data/allen_data', cache_dir='../data/./visual_behaviour_cache',
+                         blank_period=0.5, presentation_time=0.25, image_size=[1200, 1900], interleave_value = 128, subsample_frac=1):
 
     save_movies()
     cache, ids = get_experiment_ids(cache_dir, ammount, ids)
@@ -395,22 +389,51 @@ def multi_session_export(ammount, tiers, compressed=True, ids=None, root_folder=
         create_directory_structure(root_folder, base_directory)
         experiment = experiments[id]
 
-        save_images(experiment.stimulus_presentations, experiment.stimulus_templates, f'{base_directory}/stimuli', compressed)
-        
-        calculate_metrics(experiment.stimulus_presentations, experiment.stimulus_templates,
-                          experiment.running_speed, experiment.dff_traces,
-                          experiment.events, experiment.eye_tracking, base_directory)
+        if subsample_frac != 1:
+            (
+                presentation,
+                templates,
+                running,
+                dff,
+                events,
+                eye,
+                ophys_times
+            ) = subsample_data(
+                experiment.stimulus_presentations,
+                experiment.stimulus_templates,
+                experiment.running_speed,
+                experiment.dff_traces,
+                experiment.events,
+                experiment.eye_tracking,
+                experiment.ophys_timestamps,
+                subsample_frac
+            )
 
-        stimuli_export(experiment.stimulus_presentations, experiment.stimulus_templates, f'{base_directory}/screen', tier,
+        else:
+            presentation = experiment.stimulus_presentations
+            templates = experiment.stimulus_templates
+            running = experiment.running_speed
+            dff = experiment.dff_traces
+            events = experiment.events
+            ophys_times = experiment.ophys_timestamps
+            eye = experiment.eye_tracking
+            
+
+        save_images(presentation, templates, f'{base_directory}/stimuli', compressed)
+        
+        calculate_metrics(presentation, templates,
+                          running, dff,
+                          events, eye, base_directory)
+
+        stimuli_export(presentation, templates, f'{base_directory}/screen', tier,
                        blank_period, presentation_time, image_size, interleave_value, compressed)
         
-        treadmill_export(experiment.running_speed, f'{base_directory}/treadmill')
+        treadmill_export(running, f'{base_directory}/treadmill')
 
-        dff_export(experiment.dff_traces, experiment.events, experiment.ophys_timestamps,
+        dff_export(dff, events, ophys_times,
                    experiment.cell_specimen_table, experiment.metadata["imaging_depth"], f'{base_directory}/responses')
         
-        # export of eye_tracking data
-        eye_tracker_export(experiment.eye_tracking, f'{base_directory}/eye_tracker')
+        eye_tracker_export(eye, f'{base_directory}/eye_tracker')
 
     print('Export completed')
     return cache, ids
