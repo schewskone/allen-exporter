@@ -126,29 +126,50 @@ def subsample_data(
     ophys_timestamps,
     frac=0.5
 ):
-    cutoff_time = get_cutoff_time(ophys_timestamps, frac)
+    # Determine bounds
+    start_time = presentation.iloc[1]['start_time']  # start at second stimulus
+    end_time = get_cutoff_time(ophys_timestamps, frac)
 
-    trimmed_presentation = presentation[presentation['start_time'] <= cutoff_time]
+    # Trim presentation
+    trimmed_presentation = presentation[
+        (presentation['start_time'] >= start_time) & 
+        (presentation['start_time'] <= end_time)
+    ]
 
-    trimmed_ophys_times = ophys_timestamps[ophys_timestamps <= cutoff_time]
+    # Trim ophys timestamps
+    trimmed_ophys_times = ophys_timestamps[
+        (ophys_timestamps >= start_time) & 
+        (ophys_timestamps <= end_time)
+    ]
 
+    # Trim dff
     trimmed_dff = dff.copy()
+    start_idx = (ophys_timestamps >= start_time).argmax()
+    end_idx = start_idx + len(trimmed_ophys_times)
+
     trimmed_dff['dff'] = trimmed_dff['dff'].apply(
-        lambda trace: trace[:len(trimmed_ophys_times)]
+        lambda trace: trace[start_idx:end_idx]
     )
 
+    # Trim events
     trimmed_events = events.copy()
     trimmed_events['events'] = trimmed_events['events'].apply(
-        lambda e: e[:len(trimmed_ophys_times)]
+        lambda e: e[start_idx:end_idx]
     )
     if 'filtered_events' in trimmed_events.columns:
         trimmed_events['filtered_events'] = trimmed_events['filtered_events'].apply(
-            lambda e: e[:len(trimmed_ophys_times)]
+            lambda e: e[start_idx:end_idx]
         )
 
-    trimmed_running = running[running['timestamps'] <= cutoff_time]
-
-    trimmed_eye = eye[eye['timestamps'] <= cutoff_time]
+    # Trim running and eye
+    trimmed_running = running[
+        (running['timestamps'] >= start_time) & 
+        (running['timestamps'] <= end_time)
+    ]
+    trimmed_eye = eye[
+        (eye['timestamps'] >= start_time) & 
+        (eye['timestamps'] <= end_time)
+    ]
 
     return (
         trimmed_presentation,
