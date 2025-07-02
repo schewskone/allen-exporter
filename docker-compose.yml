@@ -1,0 +1,13 @@
+services:
+  allen:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/src/allen_exporter
+    ports:
+      - "8888:8888"
+    shm_size: 32gb  # Add this line to set shared memory size
+    environment:
+      - WANDB_API_KEY=fa0e2cb41816cf7a5fd65b2d309677039779c042
+      - PYTHONBUFFERED=1     

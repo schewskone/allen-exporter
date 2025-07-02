@@ -201,7 +201,7 @@ def stimuli_export(stimuli, stimulus_templates, output_dir, val_rate=0.2,
             movie = np.load(f'../data/movies/{movie_name}.npy')
             mv_size = movie.shape
 
-            modality = 'encodedvideo' if compressed else 'video'
+            modality = 'video' if compressed else 'video'
             file_format = '.mp4' if compressed else '.npy'
 
             mv_data = {
@@ -213,6 +213,7 @@ def stimuli_export(stimuli, stimulus_templates, output_dir, val_rate=0.2,
                 'first_frame_idx': frame_counter,
                 'trial_index': trial_index,
                 'num_frames': mv_size[0],
+                'encoded': compressed,
                 'image_size': [mv_size[1], mv_size[2]],
                 'pre_blank_period': row['start_time'] - prev_end_time
             }
