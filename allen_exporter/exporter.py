@@ -1,7 +1,7 @@
 import numpy as np
 import os
 from PIL import Image
-import yaml
+import json
 from tqdm import tqdm
 import random
 import pandas as pd
@@ -135,7 +135,7 @@ def stimuli_export(
 
     frame_rate = float(stimuli['end_frame'].iloc[-1] / stimuli['end_time'].iloc[-1])
     os.makedirs(output_dir, exist_ok=True)
-    write_yaml({'modality': 'screen', 'frame_rate': frame_rate}, os.path.join(output_dir, "meta.yml"))
+    write_yaml({'modality': 'screen', 'frame_rate': frame_rate, 'image_names': True}, os.path.join(output_dir, "meta.yml"))
 
     stimuli = stimuli.copy()
     is_valid_stim = stimuli['image_name'].apply(lambda x: isinstance(x, str) and ('im' in x)) | \
@@ -150,7 +150,7 @@ def stimuli_export(
     trial_index = 0
     file_counter = 0
     frame_counter = 0
-    was_stimuli = False
+    show_blank = False
     prev_end_time = 0
 
     file_format_mv = '.mp4' if compressed else '.npy'
@@ -167,7 +167,7 @@ def stimuli_export(
         tier = 'val' if idx in val_indices else 'test'
         file_key = f"{file_counter:05}"
 
-        if was_stimuli:
+        if show_blank:
             timestamps.append(prev_end_time)
             blank_data = write_blank(
                 frame_counter, image_size, blank_period,
@@ -196,7 +196,7 @@ def stimuli_export(
             }
             all_meta_data[file_key] = img_data
             timestamps.append(current_time)
-            was_stimuli = True
+            show_blank = True
             prev_end_time = row['end_time']
 
         elif is_string and 'omitted' in image_name or (not is_string and 'gray_screen' in row['stimulus_block_name']):
@@ -209,7 +209,7 @@ def stimuli_export(
             timestamps.append(current_time)
             prev_end_time = row['start_time']
             trial_index -= 1
-            was_stimuli = is_string
+            show_blank = is_string
 
         else:
             if row['movie_frame_index'] != 0:
@@ -240,7 +240,7 @@ def stimuli_export(
 
             frame_counter += mv_size[0] - 1
             prev_end_time = row['end_time']
-            was_stimuli = True
+            show_blank = False # movies do not have blank presentation afterwards
 
         frame_counter += 1
         trial_index += 1
@@ -249,9 +249,10 @@ def stimuli_export(
     timestamps_array = np.array(timestamps)
     np.save(f'{output_dir}/timestamps.npy', timestamps_array)
 
-    # Write single YAML
-    combined_meta_path = os.path.join(output_dir, "combined_meta.yml")
-    write_yaml(all_meta_data, combined_meta_path)
+    combined_meta_path = os.path.join(output_dir, "combined_meta.json")
+    with open(combined_meta_path, "w") as f:
+        json.dump(all_meta_data, f, indent=2)
+
 
 
 # function to export treadmill data
