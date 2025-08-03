@@ -1,0 +1,17 @@
+[project]
+name = "allen_exporter"
+version = "0.1.0"
+description = ""
+readme = ""
+requires-python = ">=3.9"
+dependencies = [
+    "numpy",
+    "allensdk",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
