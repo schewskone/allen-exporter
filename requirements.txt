@@ -1,5 +1,6 @@
+allensdk==2.16.2
 numpy
 jupyter
 matplotlib
 notebook
-allensdk==2.16.2
+pillow

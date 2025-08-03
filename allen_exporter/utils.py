@@ -30,7 +30,6 @@ def get_experiment_ids(
     cache = generate_cache(cache_dir)
     experiments = cache.get_ophys_experiment_table()
     if ids is None:
-        print('hey')
         ids = experiments.index[:amount].tolist()
         warnings.warn(
             f"No experiment IDs specified. Defaulting to first {amount} IDs: {ids}",
@@ -60,19 +59,6 @@ def create_directory_structure(root_folder: str, base_dir: str) -> None:
             if second_level_subdir == 'meta':
                 with open(second_level_path + ".yml", 'w') as file:
                     yaml.dump({}, file, default_flow_style=False)
-
-
-def add_blank_times(df: pd.DataFrame) -> pd.DataFrame:
-    new_rows = []
-    for i in range(1, len(df)):
-        prev_end = df.loc[i - 1, "end_time"]
-        curr_start = df.loc[i, "start_time"]
-        if curr_start > prev_end:
-            new_rows.append({"start_time": prev_end, "end_time": curr_start})
-
-    if new_rows:
-        df = pd.concat([df, pd.DataFrame(new_rows)], ignore_index=True)
-    return df.sort_values(by="start_time").reset_index(drop=True)
 
 
 def save_movies(
@@ -173,7 +159,7 @@ def subsample_data(
         trimmed_ophys_times
     )
 
-
+# Convert a 3D grayscale video array to an RGB video and save as an MP4 file using H.264 compression.
 def grayscale_to_rgb_video(
     grayscale_array: np.ndarray,
     output_path: str,
