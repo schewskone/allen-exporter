@@ -27,8 +27,6 @@ apptainer instance start \
   "$PACKAGE_DIR/apptainer/allen_exporter.sif" \
   "$INSTANCE_NAME"
 
-apptainer exec instance://"$INSTANCE_NAME" bash -c "ls /"
-
 apptainer exec instance://$INSTANCE_NAME bash -c "pip install --no-user -e $PACKAGE_DIR"
 apptainer exec instance://"$INSTANCE_NAME" python /package/src/run_export.py
 
