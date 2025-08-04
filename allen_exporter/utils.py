@@ -23,7 +23,7 @@ def generate_cache(cache_dir: str) -> VisualBehaviorOphysProjectCache:
 
 
 def get_experiment_ids(
-    cache_dir: str = '../data/./visual_behaviour_cache',
+    cache_dir: str = 'data/./visual_behaviour_cache',
     amount: int = 2,
     ids: Optional[List[int]] = None
 ) -> Tuple[VisualBehaviorOphysProjectCache, List[int]]:
@@ -62,8 +62,8 @@ def create_directory_structure(root_folder: str, base_dir: str) -> None:
 
 
 def save_movies(
-    data_folder: str = '../data/movies',
-    cache_directory: str = "../data/brain_observatory"
+    data_folder: str = 'data/movies',
+    cache_directory: str = "data/brain_observatory"
 ) -> None:
     manifest_file = f"{cache_directory}/boc_manifest.json"
     os.makedirs(cache_directory, exist_ok=True)

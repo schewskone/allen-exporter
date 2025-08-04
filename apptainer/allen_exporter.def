@@ -1,0 +1,39 @@
+Bootstrap: docker
+From: python:3.9-slim
+
+%files
+    ../requirements.txt /opt/context/requirements.txt
+
+%post
+    set -e
+
+    # Install system dependencies
+    apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        ffmpeg \
+        && rm -rf /var/lib/apt/lists/*
+
+    # Python setup
+    export PIP_ROOT_USER_ACTION=ignore
+    python3 -m pip install --upgrade pip setuptools wheel
+
+    # Install Python requirements
+    python3 -m pip install --no-cache-dir -r /opt/context/requirements.txt
+    rm -f /opt/context/requirements.txt
+
+    # Clean up
+    apt-get purge -y build-essential || true
+    apt-get autoremove -y
+    apt-get clean
+    rm -rf /root/.cache/pip
+
+%environment
+    export PYTHONUNBUFFERED=1
+    export PATH=/usr/local/bin:$PATH
+
+%runscript
+    if [ -d "/package" ]; then
+        echo "Installing local package from /package..."
+        python3 -m pip install -e /package
+    fi
+    exec python3 "$@"

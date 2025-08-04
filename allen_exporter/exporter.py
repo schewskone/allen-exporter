@@ -96,7 +96,7 @@ def save_images(
     mv_names = stimulus_table[stimulus_table['stimulus_block_name'].str.contains('movie', case=False, na=False)]['stimulus_block_name'].unique()
 
     for name in mv_names:
-        movie = np.load(f'../data/movies/{name}.npy')
+        movie = np.load(f'data/movies/{name}.npy')
         output_path = os.path.join(output_dir, f'{name}')
         if compressed:
             grayscale_to_rgb_video(movie, output_path, fps=30, crf=23)
@@ -216,7 +216,7 @@ def stimuli_export(
                 continue
 
             movie_name = row["stimulus_block_name"]
-            movie = np.load(f'../data/movies/{movie_name}.npy')
+            movie = np.load(f'data/movies/{movie_name}.npy')
             mv_size = movie.shape
 
             mv_data = {
@@ -376,7 +376,7 @@ def single_session_export(
     cache: object,
     val_rate: float = 0.2,
     compressed: bool = True,
-    root_folder: str = '../data/allen_data',
+    root_folder: str = 'data/allen_data',
     blank_period: float = 0.5,
     image_size: List[int] = [1200, 1900],
     interleave_value: int = 128,
@@ -438,8 +438,8 @@ def multi_session_export(
     val_rate: float = 0.2,
     ids: Optional[List[int]] = None,
     compressed: bool = True,
-    root_folder: str = '../data/allen_data',
-    cache_dir: str = '../data/./visual_behaviour_cache',
+    root_folder: str = 'data/allen_data',
+    cache_dir: str = 'data/./visual_behaviour_cache',
     blank_period: float = 0.5,
     image_size: List[int] = [1200, 1900],
     interleave_value: int = 128,
