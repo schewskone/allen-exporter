@@ -13,6 +13,12 @@ echo "Package Dir: $PACKAGE_DIR"
 echo "Data Dir: $DATA_DIR"
 echo "Overlay Image: $OVERLAY_IMG"
 
+# Ensure data directory exists
+if [[ ! -d "$DATA_DIR" ]]; then
+  echo "Creating data directory at $DATA_DIR..."
+  mkdir -p "$DATA_DIR"
+fi
+
 # Create overlay (if not already exists)
 if [[ ! -f "$OVERLAY_IMG" ]]; then
   echo "Creating overlay image..."
@@ -20,16 +26,17 @@ if [[ ! -f "$OVERLAY_IMG" ]]; then
 fi
 
 # Start instance with overlay
-apptainer instance start \
+apptainer instance start --contain \
   --overlay "$OVERLAY_IMG" \
-  --bind "$PACKAGE_DIR":/package \
-  --bind "$DATA_DIR":/data \
+  --bind "$PACKAGE_DIR":/user/tom.olschewski/u14131/package \
+  --bind "$DATA_DIR":/user/tom.olschewski/u14131/data \
   "$PACKAGE_DIR/apptainer/allen_exporter.sif" \
   "$INSTANCE_NAME"
 
-apptainer exec instance://$INSTANCE_NAME bash -c "pip install --no-user -e $PACKAGE_DIR"
-apptainer exec instance://"$INSTANCE_NAME" python /package/src/run_export.py
+apptainer exec instance://"$INSTANCE_NAME" bash -c "pip install --no-user -e /user/tom.olschewski/u14131/package"
+apptainer exec instance://"$INSTANCE_NAME" bash -c "python /user/tom.olschewski/u14131/package/src/run_export.py"
 
 apptainer instance stop "$INSTANCE_NAME"
 
 rm "$OVERLAY_IMG"
+
