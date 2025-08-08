@@ -2,17 +2,33 @@
 
 ## Overview
 
-This project is part of an internship at Sinzlab. The objective is to export data from the AllenSDK library into the Experanto format and use it to train existing models. The repository includes Docker setup, data organization, and scripts to streamline the data export and processing pipeline.
+This project is part of an internship at Sinzlab. The objective is to export data from the AllenSDK library into the Experanto format and use it to train existing models. This repository includes an apptainer alongside script and source code which makes the module very portable and easy to use.
 
-### Running the Project
+## Running the Project
 
-To start the Docker container and access the Jupyter notebook in your browser:
+1. Build the apptainer image:
 
-```bash
-docker compose up
-```
+  ```bash
+  cd allen_exporter/apptainer
+  apptainer build allen_exporter.sif allen_exporter.def
+  ```
 
-Navigate to the URL provided in the terminal to access the notebook interface.
+2. Go to the repo root and set the environment variable:
+
+  ```bash
+  cd ../..  
+  export ALLEN_BASE_DIR="$(pwd)"
+  ```
+
+3. Run the export script:
+
+  ```bash
+  ./allen-exporter/scripts/run_export.sh
+  ```
+
+  By default, this exports one experiment into a data folder next to the repo.
+  To customize the export, edit allen_exporter/src/run_export.sh and check the exporter function.
+
 
 ## Project Structure
 
@@ -26,7 +42,7 @@ This is a cache folder required to retrieve the movie data from the AllenSDK lib
 
 #### 2. `example_experiment`
 
-This folder contains the export of a single experiment. It is intended for testing purposes and serves as a template for the desired output structure. Details of this structure are provided below.
+This folder contains the export of a single experiment. It is intended for testing purposes and serves as a template for the desired output structure. Details of this structure are provided below.  C
 
 #### 3. `movies`
 

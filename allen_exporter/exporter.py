@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
+from pathlib import Path
 from PIL import Image
 from tqdm import tqdm
 
@@ -75,7 +76,7 @@ def save_images(
     stimulus_templates: Dict[str, pd.Series],
     output_dir: str,
     compressed: bool = True,
-) -> None:
+) -> Dict:
     images = stimulus_templates["warped"]
     idxs = images.index
 
@@ -104,13 +105,18 @@ def save_images(
         )
     ]["stimulus_block_name"].unique()
 
+    movie_shapes = {}
+
     for name in mv_names:
-        movie = np.load(f"data/movies/{name}.npy")
+        movie = np.load(Path(output_dir).parent.parent.parent.parent / "movies" / f"{name}.npy")
+        movie_shapes[name] = movie.shape
         output_path = os.path.join(output_dir, f"{name}")
         if compressed:
             grayscale_to_rgb_video(movie, output_path, fps=30, crf=23)
         else:
             np.save(f"{output_path}.npy", movie)
+
+    return movie_shapes
 
 
 # helper functions for filler grey screens after images and videos
@@ -140,6 +146,7 @@ def stimuli_export(
     image_size: List[int] = [1200, 1900],
     interleave_value: int = 128,
     compressed: bool = True,
+    movie_shapes: Dict = None,
 ) -> None:
 
     frame_rate = float(stimuli["end_frame"].iloc[-1] / stimuli["end_time"].iloc[-1])
@@ -236,8 +243,7 @@ def stimuli_export(
                 continue
 
             movie_name = row["stimulus_block_name"]
-            movie = np.load(f"data/movies/{movie_name}.npy")
-            mv_size = movie.shape
+            mv_size = movie_shapes[movie_name]
 
             mv_data = {
                 "image_name": movie_name,
@@ -430,7 +436,7 @@ def single_session_export(
         ophys_times = experiment.ophys_timestamps
         eye = experiment.eye_tracking
 
-    save_images(presentation, templates, f"{base_directory}/screen/data", compressed)
+    movie_shapes = save_images(presentation, templates, f"{base_directory}/screen/data", compressed)
 
     calculate_metrics(
         presentation, templates, running, dff, events, eye, base_directory
@@ -444,6 +450,7 @@ def single_session_export(
         image_size,
         interleave_value,
         compressed,
+        movie_shapes,
     )
 
     treadmill_export(running, f"{base_directory}/treadmill")
