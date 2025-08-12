@@ -24,10 +24,11 @@ def generate_cache(cache_dir: str) -> VisualBehaviorOphysProjectCache:
 
 
 def get_experiment_ids(
-    cache_dir: str = "data/./visual_behaviour_cache",
+    root_dir: str = None,
     amount: int = 2,
     ids: Optional[List[int]] = None,
 ) -> Tuple[VisualBehaviorOphysProjectCache, List[int]]:
+    cache_dir = f"{root_dir}/data/./visual_behaviour_cache"
     cache = generate_cache(cache_dir)
     experiments = cache.get_ophys_experiment_table()
     if ids is None:
@@ -40,7 +41,7 @@ def get_experiment_ids(
 
 
 def create_directory_structure(root_folder: str, base_dir: str) -> None:
-    subdirectories = ["eye_tracker", "responses", "screen", "treadmill", "stimuli"]
+    subdirectories = ["eye_tracker", "responses", "screen", "treadmill"]
     os.makedirs(root_folder, exist_ok=True)
 
     for subdir in subdirectories:
@@ -63,26 +64,27 @@ def create_directory_structure(root_folder: str, base_dir: str) -> None:
 
 
 def save_movies(
-    data_folder: str = "data/movies", cache_directory: str = "data/brain_observatory"
+    root_dir: str = None
 ) -> None:
-    manifest_file = f"{cache_directory}/boc_manifest.json"
-    os.makedirs(cache_directory, exist_ok=True)
+    manifest_file = f"{root_dir}/data/brain_observatory/boc_manifest.json"
+    os.makedirs(f"{root_dir}/data/brain_observatory", exist_ok=True)
 
     boc = BrainObservatoryCache(manifest_file=manifest_file)
     mv_1_3 = boc.get_ophys_experiment_data(501940850)
     mv_2 = boc.get_ophys_experiment_data(577225417)
 
-    os.makedirs(data_folder, exist_ok=True)
+    movie_folder = f"{root_dir}/data/movies"
+    os.makedirs(movie_folder, exist_ok=True)
 
     for name in ["natural_movie_one", "natural_movie_three"]:
-        path = os.path.join(data_folder, f"{name}.npy")
+        path = os.path.join(movie_folder, f"{name}.npy")
         if not os.path.exists(path):
             movie = mv_1_3.get_stimulus_template(name)
             np.save(path, movie)
 
-    if not os.path.exists(data_folder + "/natural_movie_two.npy"):
+    if not os.path.exists(movie_folder + "/natural_movie_two.npy"):
         movie_2 = mv_2.get_stimulus_template("natural_movie_two")
-        np.save(data_folder + "/natural_movie_two.npy", movie_2)
+        np.save(movie_folder + "/natural_movie_two.npy", movie_2)
 
 
 # cutoff time refers to the percentage of timepoints we want to export from a single experiment in case we want to subsample experiments

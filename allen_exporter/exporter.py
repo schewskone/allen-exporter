@@ -74,13 +74,14 @@ def calculate_metrics(
 def save_images(
     stimulus_table: pd.DataFrame,
     stimulus_templates: Dict[str, pd.Series],
-    output_dir: str,
+    allen_data_dir: str,
+    movie_dir: str,
     compressed: bool = True,
 ) -> Dict:
     images = stimulus_templates["warped"]
     idxs = images.index
 
-    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(allen_data_dir, exist_ok=True)
 
     for i in range(len(images)):
         idx = idxs[i]
@@ -93,10 +94,10 @@ def save_images(
                 image_uint8 = image.astype(np.uint8)
 
             img_pil = Image.fromarray(image_uint8)
-            output_path = os.path.join(output_dir, f"{idx}.png")
+            output_path = os.path.join(allen_data_dir, f"{idx}.png")
             img_pil.save(output_path, format="PNG")
         else:
-            npy_path = os.path.join(output_dir, f"{idx}.npy")
+            npy_path = os.path.join(allen_data_dir, f"{idx}.npy")
             np.save(npy_path, image)
 
     mv_names = stimulus_table[
@@ -108,9 +109,9 @@ def save_images(
     movie_shapes = {}
 
     for name in mv_names:
-        movie = np.load(Path(output_dir).parent.parent.parent.parent / "movies" / f"{name}.npy")
+        movie = np.load(Path(movie_dir) / f"{name}.npy")
         movie_shapes[name] = movie.shape
-        output_path = os.path.join(output_dir, f"{name}")
+        output_path = os.path.join(allen_data_dir, f"{name}")
         if compressed:
             grayscale_to_rgb_video(movie, output_path, fps=30, crf=23)
         else:
@@ -402,17 +403,18 @@ def single_session_export(
     cache: object,
     val_rate: float = 0.2,
     compressed: bool = True,
-    root_folder: str = "data/allen_data",
+    root_dir: str = None,
     blank_period: float = 0.5,
     image_size: List[int] = [1200, 1900],
     interleave_value: int = 128,
     subsample_frac: float = 1.0,
 ) -> None:
 
+    export_folder = f"{root_dir}/data/allen_data"
     print(f"Processing Experiment {experiment_id}")
     experiment = cache.get_behavior_ophys_experiment(experiment_id)
-    base_directory = f"{root_folder}/experiment_{experiment_id}"
-    create_directory_structure(root_folder, base_directory)
+    base_directory = f"{export_folder}/experiment_{experiment_id}"
+    create_directory_structure(export_folder, base_directory)
 
     if subsample_frac != 1:
         (presentation, templates, running, dff, events, eye, ophys_times) = (
@@ -436,7 +438,7 @@ def single_session_export(
         ophys_times = experiment.ophys_timestamps
         eye = experiment.eye_tracking
 
-    movie_shapes = save_images(presentation, templates, f"{base_directory}/screen/data", compressed)
+    movie_shapes = save_images(presentation, templates, f"{base_directory}/screen/data", f"{root_dir}/data/movies", compressed)
 
     calculate_metrics(
         presentation, templates, running, dff, events, eye, base_directory
@@ -471,16 +473,15 @@ def multi_session_export(
     val_rate: float = 0.2,
     ids: Optional[List[int]] = None,
     compressed: bool = True,
-    root_folder: str = "data/allen_data",
-    cache_dir: str = "data/./visual_behaviour_cache",
     blank_period: float = 0.5,
     image_size: List[int] = [1200, 1900],
     interleave_value: int = 128,
     subsample_frac: float = 1.0,
 ) -> Tuple[object, List[int]]:
-
-    save_movies()
-    cache, ids = get_experiment_ids(cache_dir, ammount, ids)
+    
+    root_dir = os.getcwd()
+    save_movies(root_dir)
+    cache, ids = get_experiment_ids(root_dir, ammount, ids)
 
     for experiment_id in tqdm(ids, desc="Processing Experiments", leave=True):
         single_session_export(
@@ -488,7 +489,7 @@ def multi_session_export(
             cache,
             val_rate=val_rate,
             compressed=compressed,
-            root_folder=root_folder,
+            root_dir=root_dir,
             blank_period=blank_period,
             image_size=image_size,
             interleave_value=interleave_value,

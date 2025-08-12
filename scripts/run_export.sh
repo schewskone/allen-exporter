@@ -20,15 +20,15 @@ if [[ ! -f "$OVERLAY_IMG" ]]; then
 fi
 
 # Start instance with overlay
-apptainer instance start \
+apptainer instance start --contain \
   --overlay "$OVERLAY_IMG" \
-  --bind "$PACKAGE_DIR":/package \
-  --bind "$DATA_DIR":/data \
+  --bind "$PACKAGE_DIR":$HOME/package \
+  --bind "$DATA_DIR":$HOME/data \
   "$PACKAGE_DIR/apptainer/allen_exporter.sif" \
   "$INSTANCE_NAME"
 
-apptainer exec instance://$INSTANCE_NAME bash -c "pip install --no-user -e $PACKAGE_DIR"
-apptainer exec instance://"$INSTANCE_NAME" python /package/src/run_export.py
+apptainer exec instance://$INSTANCE_NAME bash -c "pip install --no-user -e $HOME/package"
+apptainer exec instance://"$INSTANCE_NAME" python $HOME/package/src/run_export.py
 
 apptainer instance stop "$INSTANCE_NAME"
 
