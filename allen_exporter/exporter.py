@@ -133,6 +133,7 @@ def write_blank(
         "image_name": "blank",
         "image_size": image_size,
         "modality": "blank",
+        "tier": "blank",
         "interleave_value": interleave_value,
         "num_frames": frame_rate * blank_period,
     }
@@ -189,7 +190,7 @@ def stimuli_export(
         end_frame = row["end_frame"]
         is_string = isinstance(image_name, str)
         current_time = row["start_time"]
-        tier = "val" if idx in val_indices else "test"
+        tier = "test" if idx in val_indices else "train"
         file_key = f"{file_counter:05}"
 
         if show_blank:
