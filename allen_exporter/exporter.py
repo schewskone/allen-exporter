@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from PIL import Image
+from pprint import pprint
 from tqdm import tqdm
 
 from allen_exporter.utils import (create_directory_structure,
@@ -77,6 +78,7 @@ def save_images(
     allen_data_dir: str,
     movie_dir: str,
     compressed: bool = True,
+    frames_per_split: int = 300,
 ) -> Dict:
     images = stimulus_templates["warped"]
     idxs = images.index
@@ -100,22 +102,46 @@ def save_images(
             npy_path = os.path.join(allen_data_dir, f"{idx}.npy")
             np.save(npy_path, image)
 
+    # --- Handle movies ---
     mv_names = stimulus_table[
         stimulus_table["stimulus_block_name"].str.contains(
             "movie", case=False, na=False
         )
     ]["stimulus_block_name"].unique()
 
-    movie_shapes = {}
+    movie_shapes = {}  # will store split movie shapes now
 
     for name in mv_names:
         movie = np.load(Path(movie_dir) / f"{name}.npy")
-        movie_shapes[name] = movie.shape
-        output_path = os.path.join(allen_data_dir, f"{name}")
-        if compressed:
-            grayscale_to_rgb_video(movie, output_path, fps=30, crf=23)
-        else:
-            np.save(f"{output_path}.npy", movie)
+        total_frames = movie.shape[0]
+
+        # Split movie into chunks of frames_per_split
+        split_start = 0
+        split_index = 0
+        while split_start < total_frames:
+            split_end = min(split_start + frames_per_split, total_frames)
+            movie_part = movie[split_start:split_end]
+
+            # Name the split
+            if split_index == 0:
+                split_name = f"{name}_one"
+            elif split_index == 1:
+                split_name = f"{name}_two"
+            else:
+                split_name = f"{name}_three"
+
+            output_path = os.path.join(allen_data_dir, split_name)
+
+            if compressed:
+                grayscale_to_rgb_video(movie_part, output_path, fps=30, crf=23)
+            else:
+                np.save(f"{output_path}.npy", movie_part)
+
+            # Store shape of the split
+            movie_shapes[split_name] = movie_part.shape
+
+            split_start += frames_per_split
+            split_index += 1
 
     return movie_shapes
 
@@ -144,6 +170,7 @@ def stimuli_export(
     stimuli: pd.DataFrame,
     output_dir: str,
     val_rate: float = 0.2,
+    test_rate: float = 0.2,
     blank_period: float = 0.5,
     image_size: List[int] = [1200, 1900],
     interleave_value: int = 128,
@@ -158,17 +185,53 @@ def stimuli_export(
         os.path.join(output_dir, "meta.yml"),
     )
 
-    stimuli = stimuli.copy()
-    is_valid_stim = stimuli["image_name"].apply(
-        lambda x: isinstance(x, str) and ("im" in x)
-    ) | (
-        (stimuli["image_name"].apply(lambda x: not isinstance(x, str)))
-        & (stimuli["stimulus_block_name"].str.contains("movie"))
-    )
+    # Create unified label
+    stimuli["label"] = stimuli["image_name"].fillna(stimuli["stimulus_block_name"])
 
-    valid_indices = stimuli[is_valid_stim].index.tolist()
-    num_val = int(len(valid_indices) * val_rate)
-    val_indices = set(random.sample(valid_indices, num_val))
+    # Identify the main movie base name
+    movie_labels = [lbl for lbl in stimuli["label"].unique()
+                    if isinstance(lbl, str) and "movie" in lbl.lower() 
+                    and "omitted" not in lbl.lower() 
+                    and "greyscreen" not in lbl.lower()]
+
+    if len(movie_labels) != 1:
+        raise ValueError(f"Expected exactly one main movie, found: {movie_labels}")
+
+    base_movie_name = movie_labels[0]
+
+    # Function to rename based on frame index
+    def rename_label(row):
+        lbl = row["label"]
+        if lbl.startswith(base_movie_name) and "movie_frame_index" in row:
+            frame_idx = row["movie_frame_index"]
+            if frame_idx < 300:
+                suffix = "_one"
+            elif frame_idx < 600:
+                suffix = "_two"
+            else:
+                suffix = "_three"
+            return f"{base_movie_name}{suffix}"
+        else:
+            return lbl  # leave images or other stimuli unchanged
+
+    stimuli["label"] = stimuli.apply(rename_label, axis=1)
+
+    # Assign splits: _one → train, _two → val, _three → test
+    def assign_split(row):
+        lbl = row["label"]
+        if lbl.endswith("_two"):
+            return "val"
+        elif lbl.endswith("_three"):
+            return "test"
+        else:
+            return "train"
+
+    stimuli["split"] = stimuli.apply(assign_split, axis=1)
+
+    # Pretty-print labels per split
+    from pprint import pprint
+    split_labels = stimuli.groupby("split")["label"].apply(lambda x: list(x.unique())).to_dict()
+    pprint(split_labels)
 
     timestamps = []
     trial_index = 0
@@ -190,7 +253,7 @@ def stimuli_export(
         end_frame = row["end_frame"]
         is_string = isinstance(image_name, str)
         current_time = row["start_time"]
-        tier = "test" if idx in val_indices else "train"
+        tier = row["split"]
         file_key = f"{file_counter:05}"
 
         if show_blank:
@@ -241,11 +304,23 @@ def stimuli_export(
             show_blank = is_string
 
         else:
-            if row["movie_frame_index"] != 0:
+            if row["movie_frame_index"] != 0 and row["movie_frame_index"] not in [300, 600]:
                 continue
 
-            movie_name = row["stimulus_block_name"]
-            mv_size = movie_shapes[movie_name]
+            # Determine which split movie this row corresponds to
+            frame_idx = row["movie_frame_index"]
+            movie_name_base = row["stimulus_block_name"]
+
+            if frame_idx == 0:
+                movie_name = f"{movie_name_base}_one"
+            elif frame_idx == 300:
+                movie_name = f"{movie_name_base}_two"
+            elif frame_idx == 600:
+                movie_name = f"{movie_name_base}_three"
+            else:
+                raise ValueError(f"Unexpected movie_frame_index: {frame_idx}")
+
+            mv_size = movie_shapes[movie_name] 
 
             mv_data = {
                 "image_name": movie_name,
@@ -262,13 +337,15 @@ def stimuli_export(
             }
 
             all_meta_data[file_key] = mv_data
+
+            # Update timestamps for this movie segment
             timestamps.append(current_time)
-            for frame_idx in range(1, mv_size[0]):
-                timestamps.append(current_time + frame_idx * (2 / frame_rate))
+            for i in range(1, mv_size[0]):
+                timestamps.append(current_time + i * (2 / frame_rate))
 
             frame_counter += mv_size[0] - 1
             prev_end_time = row["end_time"]
-            show_blank = False  # movies do not have blank presentation afterwards
+            show_blank = False
 
         frame_counter += 1
         trial_index += 1
@@ -403,6 +480,7 @@ def single_session_export(
     experiment_id: int,
     cache: object,
     val_rate: float = 0.2,
+    test_rate: float = 0.2,
     compressed: bool = True,
     root_dir: str = None,
     blank_period: float = 0.5,
@@ -449,6 +527,7 @@ def single_session_export(
         presentation,
         f"{base_directory}/screen",
         val_rate,
+        test_rate,
         blank_period,
         image_size,
         interleave_value,
@@ -472,8 +551,9 @@ def single_session_export(
 def multi_session_export(
     ammount: int,
     val_rate: float = 0.2,
+    test_rate: float = 0.2,
     ids: Optional[List[int]] = None,
-    compressed: bool = True,
+    compressed: bool = False,
     blank_period: float = 0.5,
     image_size: List[int] = [1200, 1900],
     interleave_value: int = 128,
