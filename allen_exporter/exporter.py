@@ -220,7 +220,7 @@ def stimuli_export(
     def assign_split(row):
         lbl = row["label"]
         if lbl.endswith("_two"):
-            return "val"
+            return "oracle"
         elif lbl.endswith("_three"):
             return "test"
         else:
