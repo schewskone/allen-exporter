@@ -181,7 +181,7 @@ def stimuli_export(
     frame_rate = float(stimuli["end_frame"].iloc[-1] / stimuli["end_time"].iloc[-1])
     os.makedirs(output_dir, exist_ok=True)
     write_yaml(
-        {"modality": "screen", "frame_rate": frame_rate, "use_stimuli_name": True},
+        {"modality": "screen", "frame_rate": frame_rate, "use_stimuli_names": True},
         os.path.join(output_dir, "meta.yml"),
     )
 
@@ -269,7 +269,7 @@ def stimuli_export(
         if is_string and "im" in image_name:
             img_data = {
                 col: row[col]
-                for col in ["image_name", "duration", "stimulus_block_name"]
+                for col in ["duration", "stimulus_block_name"]
             } | {
                 "stimuli_name": image_name,
                 "modality": "image",
