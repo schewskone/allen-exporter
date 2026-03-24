@@ -156,7 +156,7 @@ def write_blank(
 ) -> Dict:
     return {
         "first_frame_idx": frame_counter,
-        "stimuli_name": "blank",
+        "stimulus_name": "blank",
         "image_size": image_size,
         "modality": "blank",
         "tier": "blank",
@@ -271,7 +271,7 @@ def stimuli_export(
                 col: row[col]
                 for col in ["duration", "stimulus_block_name"]
             } | {
-                "stimuli_name": image_name,
+                "stimulus_name": image_name,
                 "modality": "image",
                 "file_format": file_format_img,
                 "encoded": compressed,
@@ -323,7 +323,7 @@ def stimuli_export(
             mv_size = movie_shapes[movie_name] 
 
             mv_data = {
-                "stimuli_name": movie_name,
+                "stimulus_name": movie_name,
                 "modality": "video",
                 "file_format": file_format_mv,
                 "tier": tier,
